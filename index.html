@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Personal Money Manager</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* 1. COLOURS: change these to restyle the whole app */
+:root{--bg:#060f0b;--sf:#0d1a14;--ln:#1c3328;--tx:#eafff3;--mu:#8fb09f;--g:#22e06b;--r:#ef4444;--y:#f5b53b;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:400 15px/1.5 Poppins,system-ui,sans-serif}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+input,select{background:#0a150f;border:1px solid var(--ln);border-radius:10px;padding:10px 12px;width:100%}
+:focus-visible{outline:2px solid var(--g);outline-offset:2px}
+.app{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
+aside{background:#08130e;border-right:1px solid var(--ln);padding:20px 12px;position:sticky;top:0;height:100vh}
+.brand{text-align:center;font-size:1.1rem;line-height:1.2;margin-bottom:22px}
+.brand span{font-size:2.2rem;display:block}
+nav{display:flex;flex-direction:column;gap:4px}
+nav button{display:flex;align-items:center;gap:12px;background:none;border:0;border-radius:12px;padding:11px 14px;text-align:left;font-size:.95rem}
+nav button.on{background:var(--g);color:#04210f;font-weight:600}
+main{padding:20px;min-width:0}
+header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+h1{font-size:1.6rem;margin:0;line-height:1.2}
+header p{margin:2px 0 0;color:var(--mu)}
+.hr{display:flex;gap:8px}.hr input{width:auto}
+.hr button{background:var(--sf);border:1px solid var(--ln);border-radius:10px;padding:0 14px}
+.card{background:var(--sf);border:1px solid var(--ln);border-radius:16px;padding:16px;margin-bottom:12px}
+h2{font-size:1.05rem;margin:0 0 10px}
+.hd{display:flex;justify-content:space-between;align-items:center}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px}
+.stats .card{margin:0}
+.stat small{color:var(--mu);display:block}
+.stat b{font-size:1.7rem;font-weight:700}
+.stat.in{background:#0b2418}.stat.out{background:#2a1111;border-color:#4a1f1f}.stat.bal{background:#0c2b1b}
+.g{color:var(--g)}.r{color:var(--r)}.mu{color:var(--mu)}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.cols>div{min-width:0}
+.bud .big{font-size:2.2rem;font-weight:700;color:var(--g);line-height:1.1}
+.bud.warn .big{color:var(--y)}.bud.over .big{color:var(--r)}
+.bar{height:16px;background:#16281f;border-radius:99px;overflow:hidden;margin:10px 0 6px;flex:1}
+.bar i{display:block;height:100%;background:var(--g);border-radius:99px;transition:width .3s}
+.warn .bar i{background:var(--y)}.over .bar i{background:var(--r)}
+.bud .meta{display:flex;justify-content:space-between;align-items:center;gap:10px;color:var(--mu);font-size:.85rem}
+.bud input{width:110px;padding:6px 10px}
+.dow,.days{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;gap:3px}
+.dow{color:var(--mu);font-size:.8rem;margin:8px 0 4px}
+.day{background:none;border:0;border-radius:10px;min-height:46px;padding:4px 0;display:flex;flex-direction:column;align-items:center}
+.day.now{border:1px solid var(--g)}
+.day.sel{background:var(--g);color:#04210f;font-weight:700}
+.day span{display:flex;gap:3px;height:8px}
+.day b{width:6px;height:6px;border-radius:50%;background:var(--g)}.day b.r{background:var(--r)}
+.legend{display:flex;gap:14px;justify-content:center;font-size:.8rem;color:var(--mu);margin-top:8px}
+.pri{background:var(--g);color:#04210f;border:0;border-radius:12px;padding:12px;font-weight:600;width:100%;margin-top:10px}
+.pri.sm,.ghost.sm{width:auto;margin:0;padding:6px 14px}
+.ghost{background:none;border:1px solid var(--ln);border-radius:12px;padding:12px}
+.acts{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
+.acts button{background:var(--sf);border:1px solid var(--ln);border-radius:14px;padding:12px 4px;font-size:.8rem;display:flex;flex-direction:column;align-items:center;gap:4px}
+.acts span{font-size:1.5rem}
+.ov{display:grid;grid-template-columns:repeat(3,1fr);text-align:center;gap:6px}
+.ov span{font-size:1.5rem;display:block}.ov small{display:block;color:var(--mu)}.ov b{font-size:.95rem}
+.tx{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--ln)}
+.tx>div{flex:1;min-width:0}.tx small{display:block;color:var(--mu);font-size:.78rem}
+.ic{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:#2a1830;flex:none}
+.ic.income{background:var(--g);color:#04210f}
+.chip{font-size:.7rem;border:1px solid var(--ln);border-radius:99px;padding:0 8px;color:var(--mu)}
+.x{background:none;border:0;color:var(--mu);font-size:1.2rem;width:32px;height:32px}
+.ll{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.ll button{text-align:left;background:var(--sf);border:1px solid var(--ln);border-radius:14px;padding:12px}
+.ll small{display:block;color:var(--mu)}.ll b{font-size:1.2rem}
+.row2{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--ln)}
+.row2>div{flex:1}.row2 small{display:block;color:var(--mu)}.done{opacity:.5;text-decoration:line-through}
+.rep{display:flex;align-items:center;gap:10px;padding:6px 0}.rep span{width:120px}
+.crow{display:flex;gap:8px;margin:6px 0}.crow .ce{width:64px;text-align:center}.crow .cn{flex:1}
+#auth{position:fixed;inset:0;z-index:50;background:var(--bg);display:grid;place-items:center;padding:20px;overflow:auto}#auth.off{display:none}
+#auth .card{width:min(100%,380px)}#auth .brand{margin-bottom:12px}#auth label{display:block;margin:10px 0;color:var(--mu);font-size:.85rem}
+#a-msg{color:var(--r);min-height:1.4em;margin:6px 0 0}.lnk{background:none;border:0;color:var(--g);padding:4px 0;text-decoration:underline}
+dialog{background:var(--sf);color:var(--tx);border:1px solid var(--ln);border-radius:18px;width:min(92vw,400px);padding:20px}
+dialog::backdrop{background:#000a}
+dialog label{display:block;margin:10px 0;color:var(--mu);font-size:.85rem}
+dialog .row{display:flex;gap:10px}dialog .row button{flex:1;margin:0}
+#f-err{color:var(--r);min-height:1.4em;margin:6px 0 0}
+@media(max-width:899px){
+ .app{grid-template-columns:1fr}
+ aside{position:fixed;top:auto;bottom:0;left:0;right:0;height:auto;z-index:5;padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px));border:0;border-top:1px solid var(--ln)}
+ .brand,.soon{display:none}
+ nav{flex-direction:row}nav button{flex:1;flex-direction:column;gap:0;padding:6px 2px;font-size:.68rem;text-align:center}
+ main{padding:calc(16px + env(safe-area-inset-top,0px)) 14px 100px}
+ .cols{grid-template-columns:1fr}
+}
+@media(max-width:699px){.stats{grid-template-columns:1fr 1fr}.stats .bal{grid-column:1/-1}h1{font-size:1.3rem}.stat b{font-size:1.3rem}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside><div class="brand"><span>👛</span><b>Personal<br>Money Manager</b></div><nav id="nav"></nav></aside>
+  <main>
+    <header>
+      <div><h1 id="hi"></h1><p>Take control of your money, one step at a time.</p></div>
+      <div class="hr"><input type="month" id="month" aria-label="Month"><button id="cats" aria-label="Manage categories">🏷️</button><button id="exp">⬇ CSV</button><button id="out" aria-label="Log out">🚪</button></div>
+    </header>
+    <div id="view"></div>
+  </main>
+</div>
+<div id="auth"><div class="card"><div class="brand"><span>👛</span><b>Personal Money Manager</b></div>
+<label id="a-nw">Your name<input id="a-name" maxlength="30" autocomplete="name"></label>
+<label>Email<input id="a-email" type="email" autocomplete="email" inputmode="email"></label>
+<label>Password<input id="a-pw" type="password" autocomplete="current-password"></label>
+<p id="a-msg" role="alert"></p><button class="pri" id="a-go">Log in</button>
+<p class="mu" id="a-note">Your entries are saved online in your account. The site admin can view them.</p>
+<p><button class="lnk" id="a-sw"></button> · <button class="lnk" id="a-fp">Forgot password?</button></p></div></div>
+<dialog id="dlg"></dialog>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script>
+/* 2. SETTINGS: your name now comes from your account */
+let NAME='';
+
+/* 3. DATA: everything lives in S and is saved online in your own account */
+let S={budget:500,tx:[],loans:[]}, USER=null, pendingName='', st;
+const save=()=>{clearTimeout(st);st=setTimeout(push,400)};
+
+/* 4. HELPERS */
+const $=id=>document.getElementById(id);
+const iso=d=>d.toLocaleDateString('en-CA');
+const today=()=>iso(new Date());
+const fmt=n=>'₹'+Number(n).toLocaleString('en-IN',{maximumFractionDigits:2});
+const sum=a=>a.reduce((s,t)=>s+t.amt,0);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const DC={expense:{Food:'🍽️',Transport:'🚌',Shopping:'🛍️',Bills:'💡',Health:'💊',Fun:'🎬',Other:'📦'},income:{Salary:'💼',Business:'🏪',Freelance:'💻',Gift:'🎁',Other:'📦'}};
+const fix=()=>{if(!S.cats||!S.cats.expense||!S.cats.income){const o=S.cats||{};S.cats={expense:o.expense||(Object.keys(o).length?o:DC.expense),income:o.income||DC.income}}};fix();
+const ACCS={Cash:'💵',UPI:'📲',Wallet:'👛'};
+const NAV=[['home','🏠','Home'],['reports','📊','Reports'],['savings','🐷','Savings',1],['invest','📈','Investments',1],['borrowed','🤝','Borrowed'],['lent','🔁','Lent'],['remind','📅','Reminders',1]];
+let view='home', ym=today().slice(0,7), sel=today();
+const when=d=>d==today()?'Today':d==iso(new Date(Date.now()-864e5))?'Yesterday':d;
+const acct=a=>sum(S.tx.filter(t=>t.acc==a&&t.type=='income'))-sum(S.tx.filter(t=>t.acc==a&&t.type=='expense'));
+
+/* 5. SCREENS: each function returns HTML for one screen */
+function cal(){
+  const [y,m]=ym.split('-').map(Number), first=new Date(y,m-1,1).getDay(), days=new Date(y,m,0).getDate();
+  let h='<div class="dow">'+['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d=>'<span>'+d+'</span>').join('')+'</div><div class="days">'+'<i></i>'.repeat(first);
+  for(let d=1;d<=days;d++){
+    const ds=ym+'-'+String(d).padStart(2,'0'), ts=S.tx.filter(t=>t.date==ds);
+    h+=`<button class="day${ds==sel?' sel':''}${ds==today()?' now':''}" data-d="${ds}">${d}<span>${ts.some(t=>t.type=='income')?'<b></b>':''}${ts.some(t=>t.type=='expense')?'<b class="r"></b>':''}</span></button>`;
+  }
+  return h+'</div>';
+}
+function home(){
+  const mt=S.tx.filter(t=>t.date.startsWith(ym)),
+    inc=sum(mt.filter(t=>t.type=='income')), out=sum(mt.filter(t=>t.type=='expense')),
+    bal=sum(S.tx.filter(t=>t.type=='income'))-sum(S.tx.filter(t=>t.type=='expense')),
+    spent=sum(S.tx.filter(t=>t.date==sel&&t.type=='expense')), left=S.budget-spent,
+    pct=S.budget>0?spent/S.budget*100:(spent?100:0), cls=pct>100?'over':pct>=75?'warn':'',
+    monthName=new Date(ym+'-01T12:00:00').toLocaleDateString('en-US',{month:'long',year:'numeric'}),
+    rec=[...S.tx].sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id).slice(0,6),
+    open=k=>S.loans.filter(l=>l.kind==k&&!l.done);
+  const loanCard=(k,t)=>{const o=open(k),next=o.map(l=>l.due).sort()[0];return `<button data-a="nav" data-v="${k}"><small>${t}</small><b>${fmt(sum(o))}</b><small>${next?'Due: '+next:'Nothing open'}</small></button>`};
+  return `<div class="stats">
+    <div class="card stat bal"><small>Available Balance</small><b>${fmt(bal)}</b></div>
+    <div class="card stat in"><small>This Month Income</small><b class="g">${fmt(inc)}</b></div>
+    <div class="card stat out"><small>This Month Expenses</small><b class="r">${fmt(out)}</b></div></div>
+  <div class="card bud ${cls}">
+    <small class="mu">${sel==today()?'Today’s remaining budget':'Remaining budget for '+sel}</small>
+    <div class="big">${left>=0?fmt(left)+' left':fmt(-left)+' over'}</div>
+    <div class="bar" role="progressbar" aria-label="Daily budget used" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(Math.min(pct,100))}"><i style="width:${Math.min(pct,100)}%"></i></div>
+    <div class="meta"><span>Spent ${fmt(spent)} · ${Math.round(pct)}% used</span><label>Daily budget ₹<input id="bud" type="number" min="0" step="1" inputmode="decimal" value="${S.budget}"></label></div></div>
+  <div class="cols"><div>
+    <div class="card"><div class="hd"><h2>${monthName}</h2><span><button class="x" data-a="mprev" aria-label="Previous month">‹</button><button class="x" data-a="mnext" aria-label="Next month">›</button></span></div>${cal()}
+      <div class="legend"><span class="g">●</span> Income <span class="r">●</span> Expense</div>
+      <button class="pri" data-a="form" data-f="expense">+ Add Transaction</button></div>
+    <div class="ll">${loanCard('borrowed','Borrowed Money')}${loanCard('lent','Money Lent')}</div></div>
+  <div>
+    <div class="acts"><button data-a="form" data-f="expense"><span>⬇️</span>Add Expense</button><button data-a="form" data-f="income"><span>⬆️</span>Add Income</button><button data-a="form" data-f="borrowed"><span>🤝</span>Borrowed Money</button><button data-a="form" data-f="lent"><span>🔁</span>Money Lent</button></div>
+    <div class="card"><h2>Money Overview</h2><div class="ov">${Object.keys(ACCS).map(a=>`<div><span>${ACCS[a]}</span><small>${a}</small><b>${fmt(acct(a))}</b></div>`).join('')}</div></div>
+    <div class="card"><h2>Recent Transactions</h2>${rec.length?rec.map(t=>`<div class="tx"><span class="ic ${t.type}">${t.type=='income'?'⬆':S.cats.expense[t.cat]||'📦'}</span><div><b>${esc(t.note||t.cat)}</b><small>${when(t.date)} • ${t.time||''}</small></div><span class="chip">${t.cat}</span><b class="${t.type=='income'?'g':'r'}">${t.type=='income'?'+':'-'}${fmt(t.amt)}</b><button class="x" data-a="del" data-id="${t.id}" aria-label="Delete">×</button></div>`).join(''):'<p class="mu">No transactions yet. Tap “Add Expense” to log your first one.</p>'}</div>
+  </div></div>`;
+}
+function reports(){
+  const mt=S.tx.filter(t=>t.date.startsWith(ym)&&t.type=='expense'), tot=sum(mt), by={};
+  mt.forEach(t=>by[t.cat]=(by[t.cat]||0)+t.amt);
+  const rows=Object.entries(by).sort((a,b)=>b[1]-a[1]);
+  return `<div class="card"><h2>Spending by category</h2>${rows.length?rows.map(([c,v])=>`<div class="rep"><span>${S.cats.expense[c]||''} ${c}</span><div class="bar"><i style="width:${v/tot*100}%"></i></div><b>${fmt(v)}</b></div>`).join(''):'<p class="mu">No expenses this month.</p>'}</div>`;
+}
+function loans(kind){
+  const L=S.loans.filter(l=>l.kind==kind);
+  return `<div class="card"><div class="hd"><h2>${kind=='lent'?'Money Lent':'Borrowed Money'}</h2><button class="pri sm" data-a="form" data-f="${kind}">+ Add</button></div>`+
+  (L.length?L.map(l=>`<div class="row2"><div class="${l.done?'done':''}"><b>${esc(l.who)}</b><small>Due ${l.due}</small></div><b class="${l.done?'done':''}">${fmt(l.amt)}</b><button class="ghost sm" data-a="settle" data-id="${l.id}">${l.done?'Reopen':'Settle'}</button><button class="x" data-a="delloan" data-id="${l.id}" aria-label="Delete">×</button></div>`).join(''):'<p class="mu">Nothing here yet. Tap “Add” to record one.</p>')+'</div>';
+}
+
+/* 6. THE ADD FORM (one pop-up used for all four buttons) */
+function openForm(kind){
+  const loan=kind=='borrowed'||kind=='lent', title={expense:'Add Expense',income:'Add Income',borrowed:'Borrowed Money',lent:'Money Lent'}[kind];
+  const opts=o=>Object.keys(o).map(k=>`<option>${k}</option>`).join('');
+  $('dlg').innerHTML=`<h2>${title}</h2><label>Amount (₹)<input id="f-amt" type="number" min="0" step="0.01" inputmode="decimal"></label>`+
+  (loan?`<label>${kind=='lent'?'Lent to':'Borrowed from'}<input id="f-who" maxlength="40"></label><label>Due date<input id="f-date" type="date" value="${sel}"></label>`
+  :`<label>Category<select id="f-cat">${opts(S.cats[kind])}</select></label><button class="ghost sm" data-a="cats" data-t="${kind}">Edit ${kind} categories</button><label>Account<select id="f-acc">${opts(ACCS)}</select></label><label>Note (optional)<input id="f-note" maxlength="60"></label><label>Date<input id="f-date" type="date" value="${sel}"></label>`)+
+  `<p id="f-err" role="alert"></p><div class="row"><button class="ghost" data-a="close">Cancel</button><button class="pri" data-a="save" data-f="${kind}">Save</button></div>`;
+    $('dlg').showModal();
+}
+function submit(kind){
+  const amt=parseFloat($('f-amt').value), date=$('f-date').value||today(), err=m=>{$('f-err').textContent=m};
+  if(!(amt>0))return err('Enter an amount greater than zero.');
+  if(kind=='borrowed'||kind=='lent'){
+    const who=$('f-who').value.trim(); if(!who)return err('Enter a name.');
+    S.loans.push({id:Date.now(),kind,who,amt,due:date,done:false});
+  }else{
+    S.tx.push({id:Date.now(),type:kind,amt,cat:$('f-cat').value,acc:$('f-acc').value,note:$('f-note').value.trim(),date,time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})});
+    sel=date; ym=date.slice(0,7);
+  }
+  save(); $('dlg').close(); render();
+}
+
+/* 6b. CATEGORY EDITOR: add, rename or delete categories */
+function crow(e,n,o){return `<div class="crow" data-old="${esc(o)}"><input class="ce" value="${esc(e)}" maxlength="4" aria-label="Emoji"><input class="cn" value="${esc(n)}" maxlength="20" aria-label="Category name"><button class="x" data-a="catdel" aria-label="Delete category">×</button></div>`}
+function openCats(t){
+  t=t||'expense'; $('dlg').dataset.t=t; const c=S.cats[t], tab=k=>`<button class="${t==k?'pri':'ghost'}" data-a="cats" data-t="${k}">${k=='expense'?'Expense':'Income'}</button>`;
+  $('dlg').innerHTML='<h2>Categories</h2><div class="row" style="margin-bottom:8px">'+tab('expense')+tab('income')+'</div><div id="clist">'+Object.keys(c).map(k=>crow(c[k],k,k)).join('')+'</div><button class="ghost" data-a="catadd" style="width:100%;margin-top:8px">+ New category</button><p id="f-err" role="alert"></p><div class="row"><button class="ghost" data-a="close">Cancel</button><button class="pri" data-a="catsave">Save</button></div>';
+  if(!$('dlg').open)$('dlg').showModal();
+}
+function saveCats(){
+  const t=$('dlg').dataset.t, nc={}, ren={};
+  for(const r of document.querySelectorAll('#clist .crow')){
+    const n=r.querySelector('.cn').value.trim(), e=r.querySelector('.ce').value.trim()||'📦', o=r.dataset.old;
+    if(!n)continue;
+    if(nc[n]){$('f-err').textContent='Two categories are named “'+n+'”. Rename one.';return}
+    nc[n]=e; if(o&&o!==n)ren[o]=n;
+  }
+  if(!Object.keys(nc).length){$('f-err').textContent='Keep at least one category.';return}
+  S.tx.forEach(x=>{if(x.type==t&&ren[x.cat])x.cat=ren[x.cat]});
+  S.cats[t]=nc; save(); $('dlg').close(); render();
+}
+$('cats').onclick=()=>openCats('expense');
+
+/* 7. CSV EXPORT */
+function csv(){
+  const c=v=>{v=String(v);if(/^[=+\-@]/.test(v))v="'"+v;return '"'+v.replace(/"/g,'""')+'"'};
+  return ['Date,Time,Type,Category,Account,Note,Amount'].concat([...S.tx].sort((a,b)=>a.date.localeCompare(b.date)||a.id-b.id).map(t=>[t.date,t.time||'',t.type,t.cat,t.acc,t.note,t.amt.toFixed(2)].map(c).join(','))).join('\r\n');
+}
+$('exp').onclick=()=>{
+  if(!S.tx.length)return alert('No transactions to export yet.');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\ufeff'+csv()],{type:'text/csv'}));
+  a.download='money-manager-'+today()+'.csv'; a.click();
+};
+
+/* 8. DRAW THE PAGE */
+function render(){
+  const h=new Date().getHours();
+  $('hi').textContent=(h<12?'Good Morning':h<17?'Good Afternoon':'Good Evening')+', '+NAME+'!';
+  $('month').value=ym;
+  $('nav').innerHTML=NAV.map(n=>`<button class="${n[0]==view?'on ':''}${n[3]?'soon':''}" data-a="nav" data-v="${n[0]}">${n[1]}<span>${n[2]}</span></button>`).join('')+(isAdmin()?'<button onclick="location.href=\'admin.html\'">⚙️<span>Admin</span></button>':'');
+  const soon=NAV.find(n=>n[0]==view);
+  $('view').innerHTML=view=='home'?home():view=='reports'?reports():(view=='borrowed'||view=='lent')?loans(view):`<div class="card"><h2>${soon[2]}</h2><p class="mu">This section is coming in a later step.</p></div>`;
+}
+
+/* 9. TAPS AND CLICKS */
+document.addEventListener('click',e=>{
+  const d=e.target.closest('[data-d]'); if(d){sel=d.dataset.d;return render()}
+  const b=e.target.closest('[data-a]'); if(!b)return;
+  const a=b.dataset.a, id=+b.dataset.id;
+  if(a=='cats')return openCats(b.dataset.t);
+  if(a=='catadd')return $('clist').insertAdjacentHTML('beforeend',crow('📦','',''));
+  if(a=='catdel')return b.closest('.crow').remove();
+  if(a=='catsave')return saveCats();
+  if(a=='form')return openForm(b.dataset.f);
+  if(a=='close')return $('dlg').close();
+  if(a=='save')return submit(b.dataset.f);
+  if(a=='nav')view=b.dataset.v;
+  else if(a=='mprev'||a=='mnext'){const [y,m]=ym.split('-').map(Number);ym=iso(new Date(y,m-1+(a=='mnext'?1:-1),1)).slice(0,7)}
+  else if(a=='del'){S.tx=S.tx.filter(t=>t.id!==id);save()}
+  else if(a=='delloan'){S.loans=S.loans.filter(l=>l.id!==id);save()}
+  else if(a=='settle'){const l=S.loans.find(l=>l.id===id);if(l)l.done=!l.done;save()}
+  render();
+});
+document.addEventListener('change',e=>{
+  if(e.target.id=='bud'){S.budget=Math.max(0,parseFloat(e.target.value)||0);save();render()}
+  if(e.target.id=='month'&&e.target.value){ym=e.target.value;render()}
+});
+/* 10. LOGIN + ONLINE SAVING (Firebase) */
+const isAdmin=()=>!!(USER&&window.ADMIN_EMAIL&&USER.email&&USER.email.toLowerCase()==ADMIN_EMAIL.toLowerCase());
+let auth,db,mode='in';
+const amsg=t=>{$('a-msg').textContent=t};
+const errText=e=>({'auth/invalid-credential':'Wrong email or password.','auth/invalid-login-credentials':'Wrong email or password.','auth/wrong-password':'Wrong email or password.','auth/user-not-found':'Wrong email or password.','auth/email-already-in-use':'That email already has an account. Log in instead.','auth/weak-password':'Use a password with at least 6 characters.','auth/invalid-email':'That email doesn’t look right.','auth/network-request-failed':'No internet connection.','auth/too-many-requests':'Too many tries. Wait a bit and try again.'}[e.code]||'Something went wrong ('+e.code+').');
+function authUI(){$('a-nw').style.display=$('a-note').style.display=mode=='up'?'block':'none';$('a-go').textContent=mode=='up'?'Create account':'Log in';$('a-sw').textContent=mode=='up'?'Have an account? Log in':'New here? Create an account'}
+function push(){
+  if(!USER)return;
+  return db.collection('users').doc(USER.uid).set({name:NAME,email:USER.email,updated:firebase.firestore.FieldValue.serverTimestamp(),data:JSON.stringify(S)},{merge:true}).catch(()=>alert('Could not save. Check your internet.'));
+}
+async function boot(u){
+  USER=u;
+  if(!u){S={budget:500,tx:[],loans:[]};fix();NAME='';$('auth').classList.remove('off');authUI();return}
+  try{
+    const ref=db.collection('users').doc(u.uid), d=await ref.get(), x=d.exists?d.data():{};
+    S=Object.assign({budget:500,tx:[],loans:[]},x.data?JSON.parse(x.data):{}); fix();
+    NAME=x.name||pendingName||u.email.split('@')[0]; pendingName='';
+    if(!d.exists)await ref.set({name:NAME,email:u.email,created:firebase.firestore.FieldValue.serverTimestamp(),updated:firebase.firestore.FieldValue.serverTimestamp(),data:JSON.stringify(S)});
+    $('auth').classList.add('off'); view='home'; render();
+  }catch(e){amsg('Could not load your data ('+(e.code||'error')+').');auth.signOut()}
+}
+if(!window.FIREBASE_CONFIG||/PASTE/.test(FIREBASE_CONFIG.apiKey)){amsg('Firebase isn’t set up yet. Paste your config into firebase-config.js.')}
+else{
+  firebase.initializeApp(FIREBASE_CONFIG); auth=firebase.auth(); db=firebase.firestore();
+  $('a-go').onclick=async()=>{
+    const em=$('a-email').value.trim(), pw=$('a-pw').value, nm=$('a-name').value.trim(); amsg('');
+    if(!em||!pw)return amsg('Enter your email and password.');
+    if(mode=='up'&&!nm)return amsg('Enter your name.');
+    try{if(mode=='up'){pendingName=nm;await auth.createUserWithEmailAndPassword(em,pw)}else await auth.signInWithEmailAndPassword(em,pw)}catch(e){pendingName='';amsg(errText(e))}
+  };
+  $('a-sw').onclick=()=>{mode=mode=='up'?'in':'up';amsg('');authUI()};
+  $('a-fp').onclick=async()=>{const em=$('a-email').value.trim();if(!em)return amsg('Type your email first.');try{await auth.sendPasswordResetEmail(em);amsg('Reset link sent. Check your email.')}catch(e){amsg(errText(e))}};
+  $('out').onclick=()=>auth.signOut();
+  auth.onAuthStateChanged(boot);
+}
+authUI();
+render();
+</script>
+</body>
+</html>

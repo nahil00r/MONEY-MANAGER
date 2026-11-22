@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Admin · Personal Money Manager</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#060f0b;--sf:#0d1a14;--ln:#1c3328;--tx:#eafff3;--mu:#8fb09f;--g:#22e06b;--r:#ef4444;color-scheme:dark}
+*{box-sizing:border-box}[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--tx);font:400 15px/1.5 Poppins,system-ui,sans-serif}
+button,input{font:inherit;color:inherit}button{cursor:pointer}
+input{background:#0a150f;border:1px solid var(--ln);border-radius:10px;padding:10px 12px;width:100%}
+main{max-width:760px;margin:0 auto;padding:calc(20px + env(safe-area-inset-top,0px)) 16px 40px}
+header{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px}
+h1{font-size:1.4rem;margin:0}h3{font-size:.95rem;margin:14px 0 6px}
+.card{background:var(--sf);border:1px solid var(--ln);border-radius:16px;padding:14px 16px;margin-bottom:12px}
+summary{cursor:pointer}.g{color:var(--g)}.r{color:var(--r)}.mu{color:var(--mu)}
+.bar{height:12px;background:#16281f;border-radius:99px;overflow:hidden;flex:1}.bar i{display:block;height:100%;background:var(--g)}
+.rep{display:flex;align-items:center;gap:10px;padding:4px 0}.rep span{width:110px;overflow:hidden;text-overflow:ellipsis}
+.tx{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid var(--ln)}.tx small{display:block}
+.pri{background:var(--g);color:#04210f;border:0;border-radius:12px;padding:12px;font-weight:600;width:100%;margin-top:10px}
+.out{background:var(--sf);border:1px solid var(--ln);border-radius:10px;padding:8px 14px}
+#auth{position:fixed;inset:0;z-index:50;background:var(--bg);display:grid;place-items:center;padding:20px}#auth.off{display:none}
+#auth .card{width:min(100%,380px)}#auth label{display:block;margin:10px 0;color:var(--mu);font-size:.85rem}
+#a-msg{color:var(--r);min-height:1.4em;margin:6px 0 0}
+</style>
+</head>
+<body>
+<div id="auth"><div class="card"><h1>Admin login</h1>
+<label>Admin email<input id="a-email" type="email" autocomplete="email"></label>
+<label>Password<input id="a-pw" type="password" autocomplete="current-password"></label>
+<p id="a-msg" role="alert"></p><button class="pri" id="a-go">Log in</button></div></div>
+<main id="main" hidden>
+<header><h1>All users</h1><span><a class="mu" href="index.html">My app</a> <button class="out" id="out">Log out</button></span></header>
+<p class="mu" id="sum"></p><div id="list"></div>
+</main>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script>
+const $=id=>document.getElementById(id), msg=t=>{$('a-msg').textContent=t};
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=n=>'₹'+Number(n).toLocaleString('en-IN',{maximumFractionDigits:2});
+const sum=a=>a.reduce((s,t)=>s+(Number(t.amt)||0),0);
+const day=x=>x&&x.toDate?x.toDate().toLocaleDateString():'-';
+function card(u){
+  try{
+    let S={};try{S=JSON.parse(u.data||'{}')}catch(e){}
+    const tx=Array.isArray(S.tx)?S.tx:[], ex=tx.filter(t=>t.type=='expense'), inc=sum(tx.filter(t=>t.type=='income')), out=sum(ex), by={};
+    ex.forEach(t=>by[t.cat]=(by[t.cat]||0)+(Number(t.amt)||0));
+    const rows=Object.entries(by).sort((a,b)=>b[1]-a[1]), rec=[...tx].sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,8);
+    return `<details class="card"><summary><b>${esc(u.name||'(no name)')}</b> <span class="mu">${esc(u.email||'')}</span><br><small class="mu">Joined ${day(u.created)} · Last active ${day(u.updated)} · ${tx.length} entries · Balance ${fmt(inc-out)}</small></summary>
+    <p>Income <b class="g">${fmt(inc)}</b> · Expenses <b class="r">${fmt(out)}</b></p>
+    <h3>Spending by category</h3>${rows.length?rows.map(([c,v])=>`<div class="rep"><span>${esc(c)}</span><div class="bar"><i style="width:${Math.min(100,v/out*100)||0}%"></i></div><b>${fmt(v)}</b></div>`).join(''):'<p class="mu">No expenses yet.</p>'}
+    <h3>Recent entries</h3>${rec.length?rec.map(t=>`<div class="tx"><div><b>${esc(t.note||t.cat)}</b><small class="mu">${esc(t.date)} · ${esc(t.cat)}</small></div><b class="${t.type=='income'?'g':'r'}">${t.type=='income'?'+':'-'}${fmt(t.amt)}</b></div>`).join(''):'<p class="mu">Nothing yet.</p>'}</details>`;
+  }catch(e){return `<div class="card">${esc(u.email||u.id)}: could not read this user’s data.</div>`}
+}
+if(!window.FIREBASE_CONFIG||/PASTE/.test(FIREBASE_CONFIG.apiKey)){msg('Paste your Firebase config into firebase-config.js first.')}
+else{
+  firebase.initializeApp(FIREBASE_CONFIG); const auth=firebase.auth(), db=firebase.firestore();
+  $('a-go').onclick=async()=>{msg('');try{await auth.signInWithEmailAndPassword($('a-email').value.trim(),$('a-pw').value)}catch(e){msg('Wrong email or password.')}};
+  $('out').onclick=()=>auth.signOut();
+  auth.onAuthStateChanged(async u=>{
+    if(!u){$('auth').classList.remove('off');$('main').hidden=true;return}
+    if(!window.ADMIN_EMAIL||u.email.toLowerCase()!=ADMIN_EMAIL.toLowerCase()){msg('This account is not an admin.');auth.signOut();return}
+    try{
+      const snap=await db.collection('users').get(), us=snap.docs.map(d=>({id:d.id,...d.data()}));
+      us.sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
+      $('sum').textContent=us.length+(us.length==1?' user':' users');
+      $('list').innerHTML=us.map(card).join('')||'<p class="mu">No users yet.</p>';
+      $('auth').classList.add('off');$('main').hidden=false;
+    }catch(e){msg('Could not load users ('+(e.code||'error')+'). Check the Firestore rules.');auth.signOut()}
+  });
+}
+</script>
+</body>
+</html>
