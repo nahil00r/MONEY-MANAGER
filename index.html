@@ -138,7 +138,7 @@ const ACCS={Cash:'💵',UPI:'📲',Wallet:'👛'};
 const NAV=[['home','🏠','Home'],['reports','📊','Reports'],['savings','🐷','Savings',1],['invest','📈','Investments',1],['borrowed','🤝','Borrowed'],['lent','🔁','Lent'],['remind','📅','Reminders',1]];
 let view='home', ym=today().slice(0,7), sel=today();
 const when=d=>d==today()?'Today':d==iso(new Date(Date.now()-864e5))?'Yesterday':d;
-const acct=a=>sum(S.tx.filter(t=>t.acc==a&&t.type=='income'))-sum(S.tx.filter(t=>t.acc==a&&t.type=='expense'));
+const acct=a=>sum(S.tx.filter(t=>t.acc==a&&t.type=='income'))-sum(S.tx.filter(t=>t.acc==a&&t.type=='expense'))+sum(S.tx.filter(t=>t.type=='transfer'&&t.to==a))-sum(S.tx.filter(t=>t.type=='transfer'&&t.from==a));
 
 /* 5. SCREENS: each function returns HTML for one screen */
 function cal(){
@@ -176,8 +176,8 @@ function home(){
     <div class="ll">${loanCard('borrowed','Borrowed Money')}${loanCard('lent','Money Lent')}</div></div>
   <div>
     <div class="acts"><button data-a="form" data-f="expense"><span>⬇️</span>Add Expense</button><button data-a="form" data-f="income"><span>⬆️</span>Add Income</button><button data-a="form" data-f="borrowed"><span>🤝</span>Borrowed Money</button><button data-a="form" data-f="lent"><span>🔁</span>Money Lent</button></div>
-    <div class="card"><h2>Money Overview</h2><div class="ov">${Object.keys(ACCS).map(a=>`<div><span>${ACCS[a]}</span><small>${a}</small><b>${fmt(acct(a))}</b></div>`).join('')}</div></div>
-    <div class="card"><h2>Recent Transactions</h2>${rec.length?rec.map(t=>`<div class="tx"><span class="ic ${t.type}">${t.type=='income'?'⬆':S.cats.expense[t.cat]||'📦'}</span><div><b>${esc(t.note||t.cat)}</b><small>${when(t.date)} • ${t.time||''}</small></div><span class="chip">${t.cat}</span><b class="${t.type=='income'?'g':'r'}">${t.type=='income'?'+':'-'}${fmt(t.amt)}</b><button class="x" data-a="del" data-id="${t.id}" aria-label="Delete">×</button></div>`).join(''):'<p class="mu">No transactions yet. Tap “Add Expense” to log your first one.</p>'}</div>
+    <div class="card"><div class="hd"><h2>Money Overview</h2><button class="ghost sm" data-a="form" data-f="transfer">⇄ Move money</button></div><div class="ov">${Object.keys(ACCS).map(a=>`<div><span>${ACCS[a]}</span><small>${a}</small><b>${fmt(acct(a))}</b></div>`).join('')}</div></div>
+    <div class="card"><h2>Recent Transactions</h2>${rec.length?rec.map(t=>`<div class="tx"><span class="ic ${t.type}">${t.type=='income'?'⬆':t.type=='transfer'?'⇄':S.cats.expense[t.cat]||'📦'}</span><div><b>${esc(t.note||(t.type=='transfer'?t.acc:t.cat))}</b><small>${when(t.date)} • ${t.time||''}</small></div><span class="chip">${esc(t.cat)}</span><b class="${t.type=='income'?'g':t.type=='transfer'?'mu':'r'}">${t.type=='income'?'+':t.type=='transfer'?'':'-'}${fmt(t.amt)}</b><button class="x" data-a="del" data-id="${t.id}" aria-label="Delete">×</button></div>`).join(''):'<p class="mu">No transactions yet. Tap “Add Expense” to log your first one.</p>'}</div>
   </div></div>`;
 }
 function reports(){
@@ -194,13 +194,14 @@ function loans(kind){
 
 /* 6. THE ADD FORM (one pop-up used for all four buttons) */
 function openForm(kind){
-  const loan=kind=='borrowed'||kind=='lent', title={expense:'Add Expense',income:'Add Income',borrowed:'Borrowed Money',lent:'Money Lent'}[kind];
+  const loan=kind=='borrowed'||kind=='lent', title={expense:'Add Expense',income:'Add Income',borrowed:'Borrowed Money',lent:'Money Lent',transfer:'Move Money'}[kind];
   const opts=o=>Object.keys(o).map(k=>`<option>${k}</option>`).join('');
   $('dlg').innerHTML=`<h2>${title}</h2><label>Amount (₹)<input id="f-amt" type="number" min="0" step="0.01" inputmode="decimal"></label>`+
-  (loan?`<label>${kind=='lent'?'Lent to':'Borrowed from'}<input id="f-who" maxlength="40"></label><label>Due date<input id="f-date" type="date" value="${sel}"></label>`
+  (kind=='transfer'?`<label>From<select id="f-from">${opts(ACCS)}</select></label><label>To<select id="f-to">${opts(ACCS)}</select></label><label>Note (optional)<input id="f-note" maxlength="60"></label><label>Date<input id="f-date" type="date" value="${sel}"></label>`:loan?`<label>${kind=='lent'?'Lent to':'Borrowed from'}<input id="f-who" maxlength="40"></label><label>Due date<input id="f-date" type="date" value="${sel}"></label>`
   :`<label>Category<select id="f-cat">${opts(S.cats[kind])}</select></label><button class="ghost sm" data-a="cats" data-t="${kind}">Edit ${kind} categories</button><label>Account<select id="f-acc">${opts(ACCS)}</select></label><label>Note (optional)<input id="f-note" maxlength="60"></label><label>Date<input id="f-date" type="date" value="${sel}"></label>`)+
   `<p id="f-err" role="alert"></p><div class="row"><button class="ghost" data-a="close">Cancel</button><button class="pri" data-a="save" data-f="${kind}">Save</button></div>`;
-    $('dlg').showModal();
+    if(kind=='transfer')$('f-to').selectedIndex=1;
+  $('dlg').showModal();
 }
 function submit(kind){
   const amt=parseFloat($('f-amt').value), date=$('f-date').value||today(), err=m=>{$('f-err').textContent=m};
@@ -208,6 +209,10 @@ function submit(kind){
   if(kind=='borrowed'||kind=='lent'){
     const who=$('f-who').value.trim(); if(!who)return err('Enter a name.');
     S.loans.push({id:Date.now(),kind,who,amt,due:date,done:false});
+  }else if(kind=='transfer'){
+    const f=$('f-from').value, to=$('f-to').value; if(f==to)return err('Choose two different accounts.');
+    S.tx.push({id:Date.now(),type:'transfer',amt,from:f,to:to,cat:'Transfer',acc:f+' → '+to,note:$('f-note').value.trim(),date,time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})});
+    sel=date; ym=date.slice(0,7);
   }else{
     S.tx.push({id:Date.now(),type:kind,amt,cat:$('f-cat').value,acc:$('f-acc').value,note:$('f-note').value.trim(),date,time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})});
     sel=date; ym=date.slice(0,7);

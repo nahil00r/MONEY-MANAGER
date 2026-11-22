@@ -54,7 +54,7 @@ function card(u){
     return `<details class="card"><summary><b>${esc(u.name||'(no name)')}</b> <span class="mu">${esc(u.email||'')}</span><br><small class="mu">Joined ${day(u.created)} · Last active ${day(u.updated)} · ${tx.length} entries · Balance ${fmt(inc-out)}</small></summary>
     <p>Income <b class="g">${fmt(inc)}</b> · Expenses <b class="r">${fmt(out)}</b></p>
     <h3>Spending by category</h3>${rows.length?rows.map(([c,v])=>`<div class="rep"><span>${esc(c)}</span><div class="bar"><i style="width:${Math.min(100,v/out*100)||0}%"></i></div><b>${fmt(v)}</b></div>`).join(''):'<p class="mu">No expenses yet.</p>'}
-    <h3>Recent entries</h3>${rec.length?rec.map(t=>`<div class="tx"><div><b>${esc(t.note||t.cat)}</b><small class="mu">${esc(t.date)} · ${esc(t.cat)}</small></div><b class="${t.type=='income'?'g':'r'}">${t.type=='income'?'+':'-'}${fmt(t.amt)}</b></div>`).join(''):'<p class="mu">Nothing yet.</p>'}</details>`;
+    <h3>Recent entries</h3>${rec.length?rec.map(t=>`<div class="tx"><div><b>${esc(t.note||t.cat)}</b><small class="mu">${esc(t.date)} · ${esc(t.cat)}</small></div><b class="${t.type=='income'?'g':t.type=='transfer'?'mu':'r'}">${t.type=='income'?'+':t.type=='transfer'?'':'-'}${fmt(t.amt)}</b></div>`).join(''):'<p class="mu">Nothing yet.</p>'}</details>`;
   }catch(e){return `<div class="card">${esc(u.email||u.id)}: could not read this user’s data.</div>`}
 }
 if(!window.FIREBASE_CONFIG||/PASTE/.test(FIREBASE_CONFIG.apiKey)){msg('Paste your Firebase config into firebase-config.js first.')}
