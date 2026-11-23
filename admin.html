@@ -20,6 +20,7 @@ summary{cursor:pointer}.g{color:var(--g)}.r{color:var(--r)}.mu{color:var(--mu)}
 .rep{display:flex;align-items:center;gap:10px;padding:4px 0}.rep span{width:110px;overflow:hidden;text-overflow:ellipsis}
 .tx{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid var(--ln)}.tx small{display:block}
 .pri{background:var(--g);color:#04210f;border:0;border-radius:12px;padding:12px;font-weight:600;width:100%;margin-top:10px}
+.dng{background:none;border:1px solid var(--r);color:var(--r);border-radius:10px;padding:8px 14px;margin-top:12px}
 .out{background:var(--sf);border:1px solid var(--ln);border-radius:10px;padding:8px 14px}
 #auth{position:fixed;inset:0;z-index:50;background:var(--bg);display:grid;place-items:center;padding:20px}#auth.off{display:none}
 #auth .card{width:min(100%,380px)}#auth label{display:block;margin:10px 0;color:var(--mu);font-size:.85rem}
@@ -33,7 +34,7 @@ summary{cursor:pointer}.g{color:var(--g)}.r{color:var(--r)}.mu{color:var(--mu)}
 <p id="a-msg" role="alert"></p><button class="pri" id="a-go">Log in</button></div></div>
 <main id="main" hidden>
 <header><h1>All users</h1><span><a class="mu" href="index.html">My app</a> <button class="out" id="out">Log out</button></span></header>
-<p class="mu" id="sum"></p><div id="list"></div>
+<p class="mu" id="sum"></p><div id="list"></div><div id="rem"></div>
 </main>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -44,6 +45,7 @@ const $=id=>document.getElementById(id), msg=t=>{$('a-msg').textContent=t};
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt=n=>'₹'+Number(n).toLocaleString('en-IN',{maximumFractionDigits:2});
 const sum=a=>a.reduce((s,t)=>s+(Number(t.amt)||0),0);
+let USERS=[];
 const day=x=>x&&x.toDate?x.toDate().toLocaleDateString():'-';
 function card(u){
   try{
@@ -54,7 +56,7 @@ function card(u){
     return `<details class="card"><summary><b>${esc(u.name||'(no name)')}</b> <span class="mu">${esc(u.email||'')}</span><br><small class="mu">Joined ${day(u.created)} · Last active ${day(u.updated)} · ${tx.length} entries · Balance ${fmt(inc-out)}</small></summary>
     <p>Income <b class="g">${fmt(inc)}</b> · Expenses <b class="r">${fmt(out)}</b></p>
     <h3>Spending by category</h3>${rows.length?rows.map(([c,v])=>`<div class="rep"><span>${esc(c)}</span><div class="bar"><i style="width:${Math.min(100,v/out*100)||0}%"></i></div><b>${fmt(v)}</b></div>`).join(''):'<p class="mu">No expenses yet.</p>'}
-    <h3>Recent entries</h3>${rec.length?rec.map(t=>`<div class="tx"><div><b>${esc(t.note||t.cat)}</b><small class="mu">${esc(t.date)} · ${esc(t.cat)}</small></div><b class="${t.type=='income'?'g':t.type=='transfer'?'mu':'r'}">${t.type=='income'?'+':t.type=='transfer'?'':'-'}${fmt(t.amt)}</b></div>`).join(''):'<p class="mu">Nothing yet.</p>'}</details>`;
+    <h3>Recent entries</h3>${rec.length?rec.map(t=>`<div class="tx"><div><b>${esc(t.note||t.cat)}</b><small class="mu">${esc(t.date)} · ${esc(t.cat)}</small></div><b class="${t.type=='income'?'g':t.type=='transfer'?'mu':'r'}">${t.type=='income'?'+':t.type=='transfer'?'':'-'}${fmt(t.amt)}</b></div>`).join(''):'<p class="mu">Nothing yet.</p>'}${u.email&&window.ADMIN_EMAIL&&u.email.toLowerCase()==ADMIN_EMAIL.toLowerCase()?'':`<button class="dng" data-rm="${esc(u.id)}">Remove this user</button>`}</details>`;
   }catch(e){return `<div class="card">${esc(u.email||u.id)}: could not read this user’s data.</div>`}
 }
 if(!window.FIREBASE_CONFIG||/PASTE/.test(FIREBASE_CONFIG.apiKey)){msg('Paste your Firebase config into firebase-config.js first.')}
@@ -65,13 +67,31 @@ else{
   auth.onAuthStateChanged(async u=>{
     if(!u){$('auth').classList.remove('off');$('main').hidden=true;return}
     if(!window.ADMIN_EMAIL||u.email.toLowerCase()!=ADMIN_EMAIL.toLowerCase()){msg('This account is not an admin.');auth.signOut();return}
+    try{await load();$('auth').classList.add('off');$('main').hidden=false}catch(e){msg('Could not load users ('+(e.code||'error')+'). Check the Firestore rules.');auth.signOut()}
+  });
+  async function load(){
+    const [snap,bl]=await Promise.all([db.collection('users').get(),db.collection('blocked').get()]);
+    USERS=snap.docs.map(d=>({id:d.id,...d.data()}));
+    USERS.sort((x,y)=>String(x.name||'').localeCompare(String(y.name||'')));
+    $('sum').textContent=USERS.length+(USERS.length==1?' user':' users');
+    $('list').innerHTML=USERS.map(card).join('')||'<p class="mu">No users yet.</p>';
+    $('rem').innerHTML=bl.docs.length?'<h3>Removed users</h3>'+bl.docs.map(d=>{const x=d.data();return `<div class="tx"><div><b>${esc(x.name||'')}</b><small class="mu">${esc(x.email||d.id)}</small></div><button class="out" data-rs="${esc(d.id)}">Restore access</button></div>`}).join(''):'';
+  }
+  document.addEventListener('click',async e=>{
+    const rm=e.target.closest('[data-rm]'), rs=e.target.closest('[data-rs]');
     try{
-      const snap=await db.collection('users').get(), us=snap.docs.map(d=>({id:d.id,...d.data()}));
-      us.sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
-      $('sum').textContent=us.length+(us.length==1?' user':' users');
-      $('list').innerHTML=us.map(card).join('')||'<p class="mu">No users yet.</p>';
-      $('auth').classList.add('off');$('main').hidden=false;
-    }catch(e){msg('Could not load users ('+(e.code||'error')+'). Check the Firestore rules.');auth.signOut()}
+      if(rm){
+        const u=USERS.find(x=>x.id==rm.dataset.rm); if(!u)return;
+        if(!confirm('Remove '+(u.name||u.email)+'?\nTheir saved data will be deleted and they will no longer be able to use the app. This cannot be undone.'))return;
+        const b=db.batch();
+        b.set(db.collection('blocked').doc(u.id),{name:u.name||'',email:u.email||'',at:firebase.firestore.FieldValue.serverTimestamp()});
+        b.delete(db.collection('users').doc(u.id));
+        await b.commit(); await load();
+      }else if(rs){
+        if(!confirm('Allow this person to log in again? Their old data is gone, so they start empty.'))return;
+        await db.collection('blocked').doc(rs.dataset.rs).delete(); await load();
+      }
+    }catch(err){alert('Something went wrong ('+(err.code||'error')+'). Check that the new Firestore rules are published.')}
   });
 }
 </script>

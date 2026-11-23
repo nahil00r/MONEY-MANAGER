@@ -99,7 +99,7 @@ dialog .row{display:flex;gap:10px}dialog .row button{flex:1;margin:0}
   <main>
     <header>
       <div><h1 id="hi"></h1><p>Take control of your money, one step at a time.</p></div>
-      <div class="hr"><input type="month" id="month" aria-label="Month"><button id="cats" aria-label="Manage categories">🏷️</button><button id="exp">⬇ CSV</button><button id="out" aria-label="Log out">🚪</button></div>
+      <div class="hr"><input type="month" id="month" aria-label="Month"><button id="cats" aria-label="Manage categories">🏷️</button><button id="exp">⬇ CSV</button><button id="out">🚪 Log out</button></div>
     </header>
     <div id="view"></div>
   </main>
@@ -305,7 +305,7 @@ async function boot(u){
     NAME=x.name||pendingName||u.email.split('@')[0]; pendingName='';
     if(!d.exists)await ref.set({name:NAME,email:u.email,created:firebase.firestore.FieldValue.serverTimestamp(),updated:firebase.firestore.FieldValue.serverTimestamp(),data:JSON.stringify(S)});
     $('auth').classList.add('off'); view='home'; render();
-  }catch(e){amsg('Could not load your data ('+(e.code||'error')+').');auth.signOut()}
+  }catch(e){amsg(e.code=='permission-denied'?'Access denied. This account may have been removed by the admin.':'Could not load your data ('+(e.code||'error')+').');auth.signOut()}
 }
 if(!window.FIREBASE_CONFIG||/PASTE/.test(FIREBASE_CONFIG.apiKey)){amsg('Firebase isn’t set up yet. Paste your config into firebase-config.js.')}
 else{
