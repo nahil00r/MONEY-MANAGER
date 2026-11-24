@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Personal Money Manager</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#060f0b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Money Manager">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 /* 1. COLOURS: change these to restyle the whole app */
@@ -77,6 +84,13 @@ h2{font-size:1.05rem;margin:0 0 10px}
 #auth{position:fixed;inset:0;z-index:50;background:var(--bg);display:grid;place-items:center;padding:20px;overflow:auto}#auth.off{display:none}
 #auth .card{width:min(100%,380px)}#auth .brand{margin-bottom:12px}#auth label{display:block;margin:10px 0;color:var(--mu);font-size:.85rem}
 #a-msg{color:var(--r);min-height:1.4em;margin:6px 0 0}.lnk{background:none;border:0;color:var(--g);padding:4px 0;text-decoration:underline}
+.tabs{display:flex;gap:10px;margin-bottom:12px}.tabs button{flex:1;margin:0}
+.stats2{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:12px}.stats2 small{display:block;color:var(--mu)}.stats2 b{font-size:1.2rem}
+.chart{position:relative;display:flex;align-items:flex-end;gap:2px;height:120px;border-bottom:1px solid var(--ln)}
+.chart i{flex:1;background:var(--g);border-radius:3px 3px 0 0}.chart i.o{background:var(--r)}
+.chart u{position:absolute;left:0;right:0;border-top:2px dashed var(--y);pointer-events:none}.cap{font-size:.8rem;margin-top:6px}
+.mon .meta{display:flex;justify-content:space-between;align-items:center;gap:10px;color:var(--mu);font-size:.85rem;flex-wrap:wrap}.mon input{width:120px;padding:6px 10px}
+@media(min-width:700px){.stats2{grid-template-columns:repeat(4,1fr)}}
 dialog{background:var(--sf);color:var(--tx);border:1px solid var(--ln);border-radius:18px;width:min(92vw,400px);padding:20px}
 dialog::backdrop{background:#000a}
 dialog label{display:block;margin:10px 0;color:var(--mu);font-size:.85rem}
@@ -122,7 +136,7 @@ dialog .row{display:flex;gap:10px}dialog .row button{flex:1;margin:0}
 let NAME='';
 
 /* 3. DATA: everything lives in S and is saved online in your own account */
-let S={budget:500,tx:[],loans:[]}, USER=null, pendingName='', st;
+let S={tx:[],loans:[]}, USER=null, pendingName='', st;
 const save=()=>{clearTimeout(st);st=setTimeout(push,400)};
 
 /* 4. HELPERS */
@@ -133,10 +147,10 @@ const fmt=n=>'₹'+Number(n).toLocaleString('en-IN',{maximumFractionDigits:2});
 const sum=a=>a.reduce((s,t)=>s+t.amt,0);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const DC={expense:{Food:'🍽️',Transport:'🚌',Shopping:'🛍️',Bills:'💡',Health:'💊',Fun:'🎬',Other:'📦'},income:{Salary:'💼',Business:'🏪',Freelance:'💻',Gift:'🎁',Other:'📦'}};
-const fix=()=>{if(!S.cats||!S.cats.expense||!S.cats.income){const o=S.cats||{};S.cats={expense:o.expense||(Object.keys(o).length?o:DC.expense),income:o.income||DC.income}}};fix();
+const fix=()=>{if(S.mbudget==null)S.mbudget=S.budget?Math.round(S.budget*30):3000;if(!S.cats||!S.cats.expense||!S.cats.income){const o=S.cats||{};S.cats={expense:o.expense||(Object.keys(o).length?o:DC.expense),income:o.income||DC.income}}};fix();
 const ACCS={Cash:'💵',UPI:'📲',Wallet:'👛'};
 const NAV=[['home','🏠','Home'],['reports','📊','Reports'],['savings','🐷','Savings',1],['invest','📈','Investments',1],['borrowed','🤝','Borrowed'],['lent','🔁','Lent'],['remind','📅','Reminders',1]];
-let view='home', ym=today().slice(0,7), sel=today();
+let view='home', ym=today().slice(0,7), sel=today(), rtab='daily';
 const when=d=>d==today()?'Today':d==iso(new Date(Date.now()-864e5))?'Yesterday':d;
 const acct=a=>sum(S.tx.filter(t=>t.acc==a&&t.type=='income'))-sum(S.tx.filter(t=>t.acc==a&&t.type=='expense'))+sum(S.tx.filter(t=>t.type=='transfer'&&t.to==a))-sum(S.tx.filter(t=>t.type=='transfer'&&t.from==a));
 
@@ -154,8 +168,9 @@ function home(){
   const mt=S.tx.filter(t=>t.date.startsWith(ym)),
     inc=sum(mt.filter(t=>t.type=='income')), out=sum(mt.filter(t=>t.type=='expense')),
     bal=sum(S.tx.filter(t=>t.type=='income'))-sum(S.tx.filter(t=>t.type=='expense')),
-    spent=sum(S.tx.filter(t=>t.date==sel&&t.type=='expense')), left=S.budget-spent,
-    pct=S.budget>0?spent/S.budget*100:(spent?100:0), cls=pct>100?'over':pct>=75?'warn':'',
+    spent=sum(S.tx.filter(t=>t.date==sel&&t.type=='expense')), dbud=S.mbudget/new Date(+sel.slice(0,4),+sel.slice(5,7),0).getDate(), left=dbud-spent,
+    pct=dbud>0?spent/dbud*100:(spent?100:0), cls=pct>100?'over':pct>=75?'warn':'',
+    mspent=out, mleft=S.mbudget-mspent, mpct=S.mbudget>0?mspent/S.mbudget*100:(mspent?100:0), mcls=mpct>100?'over':mpct>=75?'warn':'',
     monthName=new Date(ym+'-01T12:00:00').toLocaleDateString('en-US',{month:'long',year:'numeric'}),
     rec=[...S.tx].sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id).slice(0,6),
     open=k=>S.loans.filter(l=>l.kind==k&&!l.done);
@@ -168,7 +183,8 @@ function home(){
     <small class="mu">${sel==today()?'Today’s remaining budget':'Remaining budget for '+sel}</small>
     <div class="big">${left>=0?fmt(left)+' left':fmt(-left)+' over'}</div>
     <div class="bar" role="progressbar" aria-label="Daily budget used" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(Math.min(pct,100))}"><i style="width:${Math.min(pct,100)}%"></i></div>
-    <div class="meta"><span>Spent ${fmt(spent)} · ${Math.round(pct)}% used</span><label>Daily budget ₹<input id="bud" type="number" min="0" step="1" inputmode="decimal" value="${S.budget}"></label></div></div>
+    <div class="meta"><span>Spent ${fmt(spent)} of ${fmt(dbud)} · ${Math.round(pct)}% used</span></div></div>
+  <div class="card mon ${mcls}"><div class="meta"><span>This month: spent ${fmt(mspent)} of ${fmt(S.mbudget)}</span><b>${mleft>=0?fmt(mleft)+' left':fmt(-mleft)+' over'}</b></div><div class="bar" role="progressbar" aria-label="Monthly budget used" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(Math.min(mpct,100))}"><i style="width:${Math.min(mpct,100)}%"></i></div><div class="meta"><label>Monthly budget ₹<input id="bud" type="number" min="0" step="1" inputmode="decimal" value="${S.mbudget}"></label><span>= ${fmt(dbud)} per day</span></div></div>
   <div class="cols"><div>
     <div class="card"><div class="hd"><h2>${monthName}</h2><span><button class="x" data-a="mprev" aria-label="Previous month">‹</button><button class="x" data-a="mnext" aria-label="Next month">›</button></span></div>${cal()}
       <div class="legend"><span class="g">●</span> Income <span class="r">●</span> Expense</div>
@@ -180,11 +196,34 @@ function home(){
     <div class="card"><h2>Recent Transactions</h2>${rec.length?rec.map(t=>`<div class="tx"><span class="ic ${t.type}">${t.type=='income'?'⬆':t.type=='transfer'?'⇄':S.cats.expense[t.cat]||'📦'}</span><div><b>${esc(t.note||(t.type=='transfer'?t.acc:t.cat))}</b><small>${when(t.date)} • ${t.time||''}</small></div><span class="chip">${esc(t.cat)}</span><b class="${t.type=='income'?'g':t.type=='transfer'?'mu':'r'}">${t.type=='income'?'+':t.type=='transfer'?'':'-'}${fmt(t.amt)}</b><button class="x" data-a="del" data-id="${t.id}" aria-label="Delete">×</button></div>`).join(''):'<p class="mu">No transactions yet. Tap “Add Expense” to log your first one.</p>'}</div>
   </div></div>`;
 }
+const byCat=arr=>{const o={};arr.forEach(t=>o[t.cat]=(o[t.cat]||0)+t.amt);return Object.entries(o).sort((x,y)=>y[1]-x[1])};
+const catHtml=(rows,type)=>{const tot=rows.reduce((q,r)=>q+r[1],0);return rows.length?rows.map(([c,v])=>`<div class="rep"><span>${S.cats[type][c]||''} ${esc(c)}</span><div class="bar"><i style="width:${v/tot*100}%"></i></div><b>${fmt(v)}</b></div>`).join(''):'<p class="mu">Nothing yet.</p>'};
+const txRow=t=>`<div class="tx"><div><b>${esc(t.note||(t.type=='transfer'?t.acc:t.cat))}</b><small>${esc(t.cat)} • ${t.time||''}</small></div><b class="${t.type=='income'?'g':t.type=='transfer'?'mu':'r'}">${t.type=='income'?'+':t.type=='transfer'?'':'-'}${fmt(t.amt)}</b></div>`;
 function reports(){
-  const mt=S.tx.filter(t=>t.date.startsWith(ym)&&t.type=='expense'), tot=sum(mt), by={};
-  mt.forEach(t=>by[t.cat]=(by[t.cat]||0)+t.amt);
-  const rows=Object.entries(by).sort((a,b)=>b[1]-a[1]);
-  return `<div class="card"><h2>Spending by category</h2>${rows.length?rows.map(([c,v])=>`<div class="rep"><span>${S.cats.expense[c]||''} ${c}</span><div class="bar"><i style="width:${v/tot*100}%"></i></div><b>${fmt(v)}</b></div>`).join(''):'<p class="mu">No expenses this month.</p>'}</div>`;
+  const tab=(k,n)=>`<button class="${rtab==k?'pri':'ghost'}" data-a="rtab" data-t="${k}">${n}</button>`;
+  return `<div class="tabs">${tab('daily','Daily')}${tab('monthly','Monthly')}</div>`+(rtab=='daily'?daily():monthly());
+}
+function daily(){
+  const [y,m]=sel.split('-').map(Number), lim=S.mbudget/new Date(y,m,0).getDate(),
+    dt=S.tx.filter(t=>t.date==sel), ex=dt.filter(t=>t.type=='expense'), inc=sum(dt.filter(t=>t.type=='income')), sp=sum(ex), left=lim-sp;
+  return `<div class="card"><div class="hd"><button class="x" data-a="rday" data-n="-1" aria-label="Previous day">‹</button><input type="date" id="rday" value="${sel}" style="width:auto"><button class="x" data-a="rday" data-n="1" aria-label="Next day">›</button></div>
+  <div class="stats2"><div><small>Spent</small><b class="r">${fmt(sp)}</b></div><div><small>Income</small><b class="g">${fmt(inc)}</b></div><div><small>Daily limit</small><b>${fmt(lim)}</b></div><div><small>${left>=0?'Left today':'Over by'}</small><b class="${left>=0?'g':'r'}">${fmt(Math.abs(left))}</b></div></div></div>
+  <div class="card"><h2>Spending by category</h2>${catHtml(byCat(ex),'expense')}</div>
+  <div class="card"><h2>Entries</h2>${dt.length?dt.map(txRow).join(''):'<p class="mu">No entries for this day.</p>'}</div>`;
+}
+function monthly(){
+  const [y,m]=ym.split('-').map(Number), dim=new Date(y,m,0).getDate(), lim=S.mbudget/dim,
+    mt=S.tx.filter(t=>t.date.startsWith(ym)), ex=mt.filter(t=>t.type=='expense'), ic=mt.filter(t=>t.type=='income'),
+    inc=sum(ic), out=sum(ex), net=inc-out, pct=S.mbudget>0?out/S.mbudget*100:(out?100:0),
+    name=k=>new Date(k+'-01T12:00:00').toLocaleDateString('en-US',{month:'long',year:'numeric'}),
+    per=Array.from({length:dim},(_,i)=>sum(ex.filter(t=>t.date==ym+'-'+String(i+1).padStart(2,'0')))), mx=Math.max(lim,...per,1), months={};
+  S.tx.forEach(t=>{if(t.type=='transfer')return;const o=months[t.date.slice(0,7)]||(months[t.date.slice(0,7)]={i:0,e:0});o[t.type=='income'?'i':'e']+=t.amt});
+  const ml=Object.keys(months).sort().reverse().slice(0,12);
+  return `<div class="card"><h2>${name(ym)}</h2><div class="stats2"><div><small>Income</small><b class="g">${fmt(inc)}</b></div><div><small>Expenses</small><b class="r">${fmt(out)}</b></div><div><small>Saved</small><b class="${net>=0?'g':'r'}">${fmt(net)}</b></div><div><small>Budget used</small><b>${Math.round(pct)}%</b></div></div></div>
+  <div class="card"><h2>Spending by day</h2><div class="chart">${per.map((v,i)=>`<i class="${v>lim?'o':''}" style="height:${v/mx*100}%" title="Day ${i+1}: ${fmt(v)}"></i>`).join('')}<u style="bottom:${lim/mx*100}%"></u></div><div class="mu cap">Dashed line = daily limit (${fmt(lim)}). Red bars went over it.</div></div>
+  <div class="card"><h2>Spending by category</h2>${catHtml(byCat(ex),'expense')}</div>
+  <div class="card"><h2>Income by category</h2>${catHtml(byCat(ic),'income')}</div>
+  <div class="card"><h2>All months</h2>${ml.length?ml.map(k=>`<div class="tx"><div><b>${name(k)}</b><small>Income ${fmt(months[k].i)} · Expenses ${fmt(months[k].e)}</small></div><b class="${months[k].i-months[k].e>=0?'g':'r'}">${fmt(months[k].i-months[k].e)}</b></div>`).join(''):'<p class="mu">No data yet.</p>'}</div>`;
 }
 function loans(kind){
   const L=S.loans.filter(l=>l.kind==kind);
@@ -276,6 +315,8 @@ document.addEventListener('click',e=>{
   if(a=='close')return $('dlg').close();
   if(a=='save')return submit(b.dataset.f);
   if(a=='nav')view=b.dataset.v;
+  else if(a=='rtab')rtab=b.dataset.t;
+  else if(a=='rday'){const d=new Date(sel+'T12:00:00');d.setDate(d.getDate()+Number(b.dataset.n));sel=iso(d);ym=sel.slice(0,7)}
   else if(a=='mprev'||a=='mnext'){const [y,m]=ym.split('-').map(Number);ym=iso(new Date(y,m-1+(a=='mnext'?1:-1),1)).slice(0,7)}
   else if(a=='del'){S.tx=S.tx.filter(t=>t.id!==id);save()}
   else if(a=='delloan'){S.loans=S.loans.filter(l=>l.id!==id);save()}
@@ -283,8 +324,9 @@ document.addEventListener('click',e=>{
   render();
 });
 document.addEventListener('change',e=>{
-  if(e.target.id=='bud'){S.budget=Math.max(0,parseFloat(e.target.value)||0);save();render()}
-  if(e.target.id=='month'&&e.target.value){ym=e.target.value;render()}
+  if(e.target.id=='bud'){S.mbudget=Math.max(0,parseFloat(e.target.value)||0);save();render()}
+  if(e.target.id=='rday'&&e.target.value){sel=e.target.value;ym=sel.slice(0,7);render()}
+  if(e.target.id=='month'&&e.target.value){ym=e.target.value;if(!sel.startsWith(ym))sel=ym==today().slice(0,7)?today():ym+'-01';render()}
 });
 /* 10. LOGIN + ONLINE SAVING (Firebase) */
 const isAdmin=()=>!!(USER&&window.ADMIN_EMAIL&&USER.email&&USER.email.toLowerCase()==ADMIN_EMAIL.toLowerCase());
@@ -298,10 +340,10 @@ function push(){
 }
 async function boot(u){
   USER=u;
-  if(!u){S={budget:500,tx:[],loans:[]};fix();NAME='';$('auth').classList.remove('off');authUI();return}
+  if(!u){S={tx:[],loans:[]};fix();NAME='';$('auth').classList.remove('off');authUI();return}
   try{
     const ref=db.collection('users').doc(u.uid), d=await ref.get(), x=d.exists?d.data():{};
-    S=Object.assign({budget:500,tx:[],loans:[]},x.data?JSON.parse(x.data):{}); fix();
+    S=Object.assign({tx:[],loans:[]},x.data?JSON.parse(x.data):{}); fix();
     NAME=x.name||pendingName||u.email.split('@')[0]; pendingName='';
     if(!d.exists)await ref.set({name:NAME,email:u.email,created:firebase.firestore.FieldValue.serverTimestamp(),updated:firebase.firestore.FieldValue.serverTimestamp(),data:JSON.stringify(S)});
     $('auth').classList.add('off'); view='home'; render();
