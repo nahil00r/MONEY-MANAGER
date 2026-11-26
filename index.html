@@ -92,6 +92,7 @@ h2{font-size:1.05rem;margin:0 0 10px}
 .mon .meta{display:flex;justify-content:space-between;align-items:center;gap:10px;color:var(--mu);font-size:.85rem;flex-wrap:wrap}.mon input{width:120px;padding:6px 10px}
 @media(min-width:700px){.stats2{grid-template-columns:repeat(4,1fr)}}
 .acts3{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.ghost.invln{width:100%;margin-top:12px}
+.chk{display:flex;align-items:center;gap:10px}.chk input{width:auto}
 dialog{background:var(--sf);color:var(--tx);border:1px solid var(--ln);border-radius:18px;width:min(92vw,400px);padding:20px}
 dialog::backdrop{background:#000a}
 dialog label{display:block;margin:10px 0;color:var(--mu);font-size:.85rem}
@@ -153,9 +154,10 @@ const ACCS={Cash:'💵',UPI:'📲',Wallet:'👛'};
 const NAV=[['home','🏠','Home'],['reports','📊','Reports'],['savings','🐷','Savings',1],['invest','📈','Investments'],['borrowed','🤝','Borrowed'],['lent','🔁','Lend'],['remind','📅','Reminders',1]];
 let view='home', ym=today().slice(0,7), sel=today(), rtab='daily';
 const when=d=>d==today()?'Today':d==iso(new Date(Date.now()-864e5))?'Yesterday':d;
-const acct=a=>sum(S.tx.filter(t=>t.acc==a&&t.type=='income'))-sum(S.tx.filter(t=>t.acc==a&&t.type=='expense'))+sum(S.tx.filter(t=>t.type=='transfer'&&t.to==a))-sum(S.tx.filter(t=>t.type=='transfer'&&t.from==a))-invFlow(a);
+const acct=a=>sum(S.tx.filter(t=>t.acc==a&&t.type=='income'))-sum(S.tx.filter(t=>t.acc==a&&t.type=='expense'))+sum(S.tx.filter(t=>t.type=='transfer'&&t.to==a))-sum(S.tx.filter(t=>t.type=='transfer'&&t.from==a))-invFlow(a)+loanDelta(a);
 const invFlow=a=>S.inv.reduce((q,i)=>q+i.flows.filter(f=>f.acc==a).reduce((r,f)=>r+f.amt,0),0);
 const invAll=()=>S.inv.reduce((q,i)=>q+i.flows.reduce((r,f)=>r+f.amt,0),0);
+const loanDelta=a=>S.loans.reduce((q,l)=>q+(l.fl||[]).filter(f=>!a||f.acc==a).reduce((r,f)=>r+f.d,0),0);
 
 /* 5. SCREENS: each function returns HTML for one screen */
 function cal(){
@@ -170,7 +172,7 @@ function cal(){
 function home(){
   const mt=S.tx.filter(t=>t.date.startsWith(ym)),
     inc=sum(mt.filter(t=>t.type=='income')), out=sum(mt.filter(t=>t.type=='expense')),
-    bal=sum(S.tx.filter(t=>t.type=='income'))-sum(S.tx.filter(t=>t.type=='expense'))-invAll(),
+    bal=sum(S.tx.filter(t=>t.type=='income'))-sum(S.tx.filter(t=>t.type=='expense'))-invAll()+loanDelta(),
     spent=sum(S.tx.filter(t=>t.date==sel&&t.type=='expense')), dbud=S.mbudget/new Date(+sel.slice(0,4),+sel.slice(5,7),0).getDate(), left=dbud-spent,
     pct=dbud>0?spent/dbud*100:(spent?100:0), cls=pct>100?'over':pct>=75?'warn':'',
     mspent=out, mleft=S.mbudget-mspent, mpct=S.mbudget>0?mspent/S.mbudget*100:(mspent?100:0), mcls=mpct>100?'over':mpct>=75?'warn':'',
@@ -263,7 +265,7 @@ function submitInv(kind){
 function loans(kind){
   const L=S.loans.filter(l=>l.kind==kind);
   return `<div class="card"><div class="hd"><h2>${kind=='lent'?'Lend Money':'Borrowed Money'}</h2><button class="pri sm" data-a="form" data-f="${kind}">+ Add</button></div>`+
-  (L.length?L.map(l=>`<div class="row2"><div class="${l.done?'done':''}"><b>${esc(l.who)}</b><small>Due ${l.due}</small></div><b class="${l.done?'done':''}">${fmt(l.amt)}</b><button class="ghost sm" data-a="settle" data-id="${l.id}">${l.done?'Reopen':'Settle'}</button><button class="x" data-a="delloan" data-id="${l.id}" aria-label="Delete">×</button></div>`).join(''):'<p class="mu">Nothing here yet. Tap “Add” to record one.</p>')+'</div>';
+  (L.length?L.map(l=>`<div class="row2"><div class="${l.done?'done':''}"><b>${esc(l.who)}</b><small>Due ${esc(l.due)}${(l.fl||[]).map(f=>' · '+(f.d>0?'+':'-')+fmt(Math.abs(f.d))+' '+esc(f.acc)).join('')}</small></div><b class="${l.done?'done':''}">${fmt(l.amt)}</b><button class="ghost sm" data-a="settle" data-id="${l.id}">${l.done?'Reopen':'Settle'}</button><button class="x" data-a="delloan" data-id="${l.id}" aria-label="Delete">×</button></div>`).join(''):'<p class="mu">Nothing here yet. Tap “Add” to record one.</p>')+'</div>';
 }
 
 /* 6. THE ADD FORM (one pop-up used for all four buttons) */
@@ -272,19 +274,33 @@ function openForm(kind,id){
   const loan=kind=='borrowed'||kind=='lent', title={expense:'Add Expense',income:'Add Income',borrowed:'Borrowed Money',lent:'Lend Money',transfer:'Move Money'}[kind];
   const opts=o=>Object.keys(o).map(k=>`<option>${k}</option>`).join('');
   $('dlg').innerHTML=`<h2>${title}</h2><label>Amount (₹)<input id="f-amt" type="number" min="0" step="0.01" inputmode="decimal"></label>`+
-  (kind=='transfer'?`<label>From<select id="f-from">${opts(ACCS)}</select></label><label>To<select id="f-to">${opts(ACCS)}</select></label><label>Note (optional)<input id="f-note" maxlength="60"></label><label>Date<input id="f-date" type="date" value="${sel}"></label>`:loan?`<label>${kind=='lent'?'Lend to':'Borrowed from'}<input id="f-who" maxlength="40"></label><label>Due date<input id="f-date" type="date" value="${sel}"></label>`
+  (kind=='transfer'?`<label>From<select id="f-from">${opts(ACCS)}</select></label><label>To<select id="f-to">${opts(ACCS)}</select></label><label>Note (optional)<input id="f-note" maxlength="60"></label><label>Date<input id="f-date" type="date" value="${sel}"></label>`:loan?`<label>${kind=='lent'?'Lend to':'Borrowed from'}<input id="f-who" maxlength="40"></label><label>Due date<input id="f-date" type="date" value="${sel}"></label><label class="chk"><input type="checkbox" id="f-link" checked>${kind=='lent'?'Take this money from my account':'Add this money to my account'}</label><label>Account<select id="f-acc">${opts(ACCS)}</select></label>`
   :`<label>Category<select id="f-cat">${opts(S.cats[kind])}</select></label><button class="ghost sm" data-a="cats" data-t="${kind}">Edit ${kind} categories</button><label>Account<select id="f-acc">${opts(ACCS)}</select></label><label>Note (optional)<input id="f-note" maxlength="60"></label><label>Date<input id="f-date" type="date" value="${sel}"></label>`)+
   `<p id="f-err" role="alert"></p><div class="row"><button class="ghost" data-a="close">Cancel</button><button class="pri" data-a="save" data-f="${kind}">Save</button></div>`;
     if(kind=='transfer')$('f-to').selectedIndex=1;
   $('dlg').showModal();
 }
+function openSettle(l){
+  const b=l.kind=='borrowed'; $('dlg').dataset.id=l.id;
+  $('dlg').innerHTML=`<h2>Settle · ${esc(l.who)}</h2><p class="mu">${b?'You repay':'You get back'} ${fmt(l.amt)}</p><label class="chk"><input type="checkbox" id="f-link" checked>${b?'Take the repayment from my account':'Add the money to my account'}</label><label>Account<select id="f-acc">${Object.keys(ACCS).map(k=>`<option>${k}</option>`).join('')}</select></label><div class="row"><button class="ghost" data-a="close">Cancel</button><button class="pri" data-a="save" data-f="settle">Settle</button></div>`;
+  $('dlg').showModal();
+}
+function submitSettle(){
+  const l=S.loans.find(x=>x.id===+$('dlg').dataset.id); if(!l)return;
+  l.done=true; l.fl=(l.fl||[]).filter(f=>!f.s);
+  if($('f-link').checked)l.fl.push({acc:$('f-acc').value,d:l.kind=='borrowed'?-l.amt:l.amt,s:1});
+  save();$('dlg').close();render();
+}
 function submit(kind){
+  if(kind=='settle')return submitSettle();
   if(kind.startsWith('inv'))return submitInv(kind);
   const amt=parseFloat($('f-amt').value), date=$('f-date').value||today(), err=m=>{$('f-err').textContent=m};
   if(!(amt>0))return err('Enter an amount greater than zero.');
   if(kind=='borrowed'||kind=='lent'){
     const who=$('f-who').value.trim(); if(!who)return err('Enter a name.');
-    S.loans.push({id:Date.now(),kind,who,amt,due:date,done:false});
+    const ln={id:Date.now(),kind,who,amt,due:date,done:false};
+    if($('f-link').checked)ln.fl=[{acc:$('f-acc').value,d:kind=='borrowed'?amt:-amt}];
+    S.loans.push(ln);
   }else if(kind=='transfer'){
     const f=$('f-from').value, to=$('f-to').value; if(f==to)return err('Choose two different accounts.');
     S.tx.push({id:Date.now(),type:'transfer',amt,from:f,to:to,cat:'Transfer',acc:f+' → '+to,note:$('f-note').value.trim(),date,time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})});
@@ -357,8 +373,8 @@ document.addEventListener('click',e=>{
   else if(a=='rday'){const d=new Date(sel+'T12:00:00');d.setDate(d.getDate()+Number(b.dataset.n));sel=iso(d);ym=sel.slice(0,7)}
   else if(a=='mprev'||a=='mnext'){const [y,m]=ym.split('-').map(Number);ym=iso(new Date(y,m-1+(a=='mnext'?1:-1),1)).slice(0,7)}
   else if(a=='del'){S.tx=S.tx.filter(t=>t.id!==id);save()}
-  else if(a=='delloan'){S.loans=S.loans.filter(l=>l.id!==id);save()}
-  else if(a=='settle'){const l=S.loans.find(l=>l.id===id);if(l)l.done=!l.done;save()}
+  else if(a=='delloan'){const l=S.loans.find(l=>l.id===id);if(l&&(l.fl||[]).length&&!confirm('Delete this record? Its effect on your account balances will be reversed.'))return;S.loans=S.loans.filter(l=>l.id!==id);save()}
+  else if(a=='settle'){const l=S.loans.find(l=>l.id===id);if(!l)return;if(l.done){l.done=false;l.fl=(l.fl||[]).filter(f=>!f.s);save()}else return openSettle(l)}
   render();
 });
 document.addEventListener('change',e=>{
