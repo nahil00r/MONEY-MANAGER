@@ -50,10 +50,10 @@ const day=x=>x&&x.toDate?x.toDate().toLocaleDateString():'-';
 function card(u){
   try{
     let S={};try{S=JSON.parse(u.data||'{}')}catch(e){}
-    const tx=Array.isArray(S.tx)?S.tx:[], ex=tx.filter(t=>t.type=='expense'), inc=sum(tx.filter(t=>t.type=='income')), out=sum(ex), by={};
+    const tx=Array.isArray(S.tx)?S.tx:[], ex=tx.filter(t=>t.type=='expense'), inc=sum(tx.filter(t=>t.type=='income')), out=sum(ex), by={}, fl=(Array.isArray(S.inv)?S.inv:[]).reduce((q,i)=>q+(Array.isArray(i.flows)?i.flows:[]).reduce((r,f)=>r+(Number(f.amt)||0),0),0);
     ex.forEach(t=>by[t.cat]=(by[t.cat]||0)+(Number(t.amt)||0));
     const rows=Object.entries(by).sort((a,b)=>b[1]-a[1]), rec=[...tx].sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,8);
-    return `<details class="card"><summary><b>${esc(u.name||'(no name)')}</b> <span class="mu">${esc(u.email||'')}</span><br><small class="mu">Joined ${day(u.created)} · Last active ${day(u.updated)} · ${tx.length} entries · Balance ${fmt(inc-out)}</small></summary>
+    return `<details class="card"><summary><b>${esc(u.name||'(no name)')}</b> <span class="mu">${esc(u.email||'')}</span><br><small class="mu">Joined ${day(u.created)} · Last active ${day(u.updated)} · ${tx.length} entries · Balance ${fmt(inc-out-fl)}</small></summary>
     <p>Income <b class="g">${fmt(inc)}</b> · Expenses <b class="r">${fmt(out)}</b></p>
     <h3>Spending by category</h3>${rows.length?rows.map(([c,v])=>`<div class="rep"><span>${esc(c)}</span><div class="bar"><i style="width:${Math.min(100,v/out*100)||0}%"></i></div><b>${fmt(v)}</b></div>`).join(''):'<p class="mu">No expenses yet.</p>'}
     <h3>Recent entries</h3>${rec.length?rec.map(t=>`<div class="tx"><div><b>${esc(t.note||t.cat)}</b><small class="mu">${esc(t.date)} · ${esc(t.cat)}</small></div><b class="${t.type=='income'?'g':t.type=='transfer'?'mu':'r'}">${t.type=='income'?'+':t.type=='transfer'?'':'-'}${fmt(t.amt)}</b></div>`).join(''):'<p class="mu">Nothing yet.</p>'}${u.email&&window.ADMIN_EMAIL&&u.email.toLowerCase()==ADMIN_EMAIL.toLowerCase()?'':`<button class="dng" data-rm="${esc(u.id)}">Remove this user</button>`}</details>`;

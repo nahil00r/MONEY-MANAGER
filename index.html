@@ -91,6 +91,7 @@ h2{font-size:1.05rem;margin:0 0 10px}
 .chart u{position:absolute;left:0;right:0;border-top:2px dashed var(--y);pointer-events:none}.cap{font-size:.8rem;margin-top:6px}
 .mon .meta{display:flex;justify-content:space-between;align-items:center;gap:10px;color:var(--mu);font-size:.85rem;flex-wrap:wrap}.mon input{width:120px;padding:6px 10px}
 @media(min-width:700px){.stats2{grid-template-columns:repeat(4,1fr)}}
+.acts3{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.ghost.invln{width:100%;margin-top:12px}
 dialog{background:var(--sf);color:var(--tx);border:1px solid var(--ln);border-radius:18px;width:min(92vw,400px);padding:20px}
 dialog::backdrop{background:#000a}
 dialog label{display:block;margin:10px 0;color:var(--mu);font-size:.85rem}
@@ -147,12 +148,14 @@ const fmt=n=>'₹'+Number(n).toLocaleString('en-IN',{maximumFractionDigits:2});
 const sum=a=>a.reduce((s,t)=>s+t.amt,0);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const DC={expense:{Food:'🍽️',Transport:'🚌',Shopping:'🛍️',Bills:'💡',Health:'💊',Fun:'🎬',Other:'📦'},income:{Salary:'💼',Business:'🏪',Freelance:'💻',Gift:'🎁',Other:'📦'}};
-const fix=()=>{if(S.mbudget==null)S.mbudget=S.budget?Math.round(S.budget*30):3000;if(!S.cats||!S.cats.expense||!S.cats.income){const o=S.cats||{};S.cats={expense:o.expense||(Object.keys(o).length?o:DC.expense),income:o.income||DC.income}}};fix();
+const fix=()=>{if(!Array.isArray(S.inv))S.inv=[];if(S.mbudget==null)S.mbudget=S.budget?Math.round(S.budget*30):3000;if(!S.cats||!S.cats.expense||!S.cats.income){const o=S.cats||{};S.cats={expense:o.expense||(Object.keys(o).length?o:DC.expense),income:o.income||DC.income}}};fix();
 const ACCS={Cash:'💵',UPI:'📲',Wallet:'👛'};
-const NAV=[['home','🏠','Home'],['reports','📊','Reports'],['savings','🐷','Savings',1],['invest','📈','Investments',1],['borrowed','🤝','Borrowed'],['lent','🔁','Lent'],['remind','📅','Reminders',1]];
+const NAV=[['home','🏠','Home'],['reports','📊','Reports'],['savings','🐷','Savings',1],['invest','📈','Investments'],['borrowed','🤝','Borrowed'],['lent','🔁','Lend'],['remind','📅','Reminders',1]];
 let view='home', ym=today().slice(0,7), sel=today(), rtab='daily';
 const when=d=>d==today()?'Today':d==iso(new Date(Date.now()-864e5))?'Yesterday':d;
-const acct=a=>sum(S.tx.filter(t=>t.acc==a&&t.type=='income'))-sum(S.tx.filter(t=>t.acc==a&&t.type=='expense'))+sum(S.tx.filter(t=>t.type=='transfer'&&t.to==a))-sum(S.tx.filter(t=>t.type=='transfer'&&t.from==a));
+const acct=a=>sum(S.tx.filter(t=>t.acc==a&&t.type=='income'))-sum(S.tx.filter(t=>t.acc==a&&t.type=='expense'))+sum(S.tx.filter(t=>t.type=='transfer'&&t.to==a))-sum(S.tx.filter(t=>t.type=='transfer'&&t.from==a))-invFlow(a);
+const invFlow=a=>S.inv.reduce((q,i)=>q+i.flows.filter(f=>f.acc==a).reduce((r,f)=>r+f.amt,0),0);
+const invAll=()=>S.inv.reduce((q,i)=>q+i.flows.reduce((r,f)=>r+f.amt,0),0);
 
 /* 5. SCREENS: each function returns HTML for one screen */
 function cal(){
@@ -167,13 +170,14 @@ function cal(){
 function home(){
   const mt=S.tx.filter(t=>t.date.startsWith(ym)),
     inc=sum(mt.filter(t=>t.type=='income')), out=sum(mt.filter(t=>t.type=='expense')),
-    bal=sum(S.tx.filter(t=>t.type=='income'))-sum(S.tx.filter(t=>t.type=='expense')),
+    bal=sum(S.tx.filter(t=>t.type=='income'))-sum(S.tx.filter(t=>t.type=='expense'))-invAll(),
     spent=sum(S.tx.filter(t=>t.date==sel&&t.type=='expense')), dbud=S.mbudget/new Date(+sel.slice(0,4),+sel.slice(5,7),0).getDate(), left=dbud-spent,
     pct=dbud>0?spent/dbud*100:(spent?100:0), cls=pct>100?'over':pct>=75?'warn':'',
     mspent=out, mleft=S.mbudget-mspent, mpct=S.mbudget>0?mspent/S.mbudget*100:(mspent?100:0), mcls=mpct>100?'over':mpct>=75?'warn':'',
     monthName=new Date(ym+'-01T12:00:00').toLocaleDateString('en-US',{month:'long',year:'numeric'}),
     rec=[...S.tx].sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id).slice(0,6),
     open=k=>S.loans.filter(l=>l.kind==k&&!l.done);
+  const ival=S.inv.reduce((q,i)=>q+i.val,0), ipl=S.inv.reduce((q,i)=>q+i.val+i.out-i.put,0);
   const loanCard=(k,t)=>{const o=open(k),next=o.map(l=>l.due).sort()[0];return `<button data-a="nav" data-v="${k}"><small>${t}</small><b>${fmt(sum(o))}</b><small>${next?'Due: '+next:'Nothing open'}</small></button>`};
   return `<div class="stats">
     <div class="card stat bal"><small>Available Balance</small><b>${fmt(bal)}</b></div>
@@ -189,10 +193,10 @@ function home(){
     <div class="card"><div class="hd"><h2>${monthName}</h2><span><button class="x" data-a="mprev" aria-label="Previous month">‹</button><button class="x" data-a="mnext" aria-label="Next month">›</button></span></div>${cal()}
       <div class="legend"><span class="g">●</span> Income <span class="r">●</span> Expense</div>
       <button class="pri" data-a="form" data-f="expense">+ Add Transaction</button></div>
-    <div class="ll">${loanCard('borrowed','Borrowed Money')}${loanCard('lent','Money Lent')}</div></div>
+    <div class="ll">${loanCard('borrowed','Borrowed Money')}${loanCard('lent','Lend Money')}</div></div>
   <div>
-    <div class="acts"><button data-a="form" data-f="expense"><span>⬇️</span>Add Expense</button><button data-a="form" data-f="income"><span>⬆️</span>Add Income</button><button data-a="form" data-f="borrowed"><span>🤝</span>Borrowed Money</button><button data-a="form" data-f="lent"><span>🔁</span>Money Lent</button></div>
-    <div class="card"><div class="hd"><h2>Money Overview</h2><button class="ghost sm" data-a="form" data-f="transfer">⇄ Move money</button></div><div class="ov">${Object.keys(ACCS).map(a=>`<div><span>${ACCS[a]}</span><small>${a}</small><b>${fmt(acct(a))}</b></div>`).join('')}</div></div>
+    <div class="acts"><button data-a="form" data-f="expense"><span>⬇️</span>Add Expense</button><button data-a="form" data-f="income"><span>⬆️</span>Add Income</button><button data-a="form" data-f="borrowed"><span>🤝</span>Borrowed Money</button><button data-a="form" data-f="lent"><span>🔁</span>Lend Money</button></div>
+    <div class="card"><div class="hd"><h2>Money Overview</h2><button class="ghost sm" data-a="form" data-f="transfer">⇄ Move money</button></div><div class="ov">${Object.keys(ACCS).map(a=>`<div><span>${ACCS[a]}</span><small>${a}</small><b>${fmt(acct(a))}</b></div>`).join('')}</div>${S.inv.length?`<button class="ghost sm invln" data-a="nav" data-v="invest">📈 Investments worth ${fmt(ival)} (${ipl>=0?'+':'-'}${fmt(Math.abs(ipl))})</button>`:''}</div>
     <div class="card"><h2>Recent Transactions</h2>${rec.length?rec.map(t=>`<div class="tx"><span class="ic ${t.type}">${t.type=='income'?'⬆':t.type=='transfer'?'⇄':S.cats.expense[t.cat]||'📦'}</span><div><b>${esc(t.note||(t.type=='transfer'?t.acc:t.cat))}</b><small>${when(t.date)} • ${t.time||''}</small></div><span class="chip">${esc(t.cat)}</span><b class="${t.type=='income'?'g':t.type=='transfer'?'mu':'r'}">${t.type=='income'?'+':t.type=='transfer'?'':'-'}${fmt(t.amt)}</b><button class="x" data-a="del" data-id="${t.id}" aria-label="Delete">×</button></div>`).join(''):'<p class="mu">No transactions yet. Tap “Add Expense” to log your first one.</p>'}</div>
   </div></div>`;
 }
@@ -225,24 +229,57 @@ function monthly(){
   <div class="card"><h2>Income by category</h2>${catHtml(byCat(ic),'income')}</div>
   <div class="card"><h2>All months</h2>${ml.length?ml.map(k=>`<div class="tx"><div><b>${name(k)}</b><small>Income ${fmt(months[k].i)} · Expenses ${fmt(months[k].e)}</small></div><b class="${months[k].i-months[k].e>=0?'g':'r'}">${fmt(months[k].i-months[k].e)}</b></div>`).join(''):'<p class="mu">No data yet.</p>'}</div>`;
 }
+function invest(){
+  const pl=i=>i.val+i.out-i.put, sg=v=>(v>=0?'+':'-')+fmt(Math.abs(v)), sm=f=>S.inv.reduce((q,i)=>q+f(i),0), tp=sm(pl);
+  return `<div class="card"><div class="hd"><h2>Investments</h2><button class="pri sm" data-a="form" data-f="invnew">+ New</button></div>
+  <div class="stats2"><div><small>Put in</small><b>${fmt(sm(i=>i.put))}</b></div><div><small>Worth now</small><b>${fmt(sm(i=>i.val))}</b></div><div><small>Profit / loss</small><b class="${tp>=0?'g':'r'}">${sg(tp)}</b></div></div></div>`+
+  (S.inv.length?S.inv.map(i=>`<div class="card"><div class="hd"><b>${esc(i.name)}</b><button class="x" data-a="invdel" data-id="${i.id}" aria-label="Delete investment">×</button></div>
+  <div class="stats2"><div><small>Put in</small><b>${fmt(i.put)}</b></div><div><small>Worth now</small><b>${fmt(i.val)}</b></div><div><small>Profit / loss</small><b class="${pl(i)>=0?'g':'r'}">${sg(pl(i))} (${(i.put>0?pl(i)/i.put*100:0).toFixed(1)}%)</b></div></div>
+  <div class="acts3"><button class="ghost sm" data-a="form" data-f="invval" data-id="${i.id}">Update value</button><button class="ghost sm" data-a="form" data-f="invadd" data-id="${i.id}">Add money</button><button class="ghost sm" data-a="form" data-f="invout" data-id="${i.id}">Withdraw</button></div></div>`).join(''):'<div class="card"><p class="mu">No investments yet. Tap “+ New” to add one, for example your trading money.</p></div>');
+}
+function openInv(kind,id){
+  const v=S.inv.find(i=>i.id===id), opts=o=>Object.keys(o).map(k=>`<option>${k}</option>`).join(''),
+    T={invnew:'New investment',invadd:'Add money',invout:'Withdraw money',invval:'Update value'}[kind]+(v?' · '+esc(v.name):'');
+  $('dlg').dataset.id=id||'';
+  const amt=l=>`<label>${l}<input id="f-amt" type="number" min="0" step="0.01" inputmode="decimal" value="${kind=='invval'?v.val:''}"></label>`,
+    acc=l=>`<label>${l}<select id="f-acc">${opts(ACCS)}</select></label>`, date=`<label>Date<input id="f-date" type="date" value="${sel}"></label>`;
+  $('dlg').innerHTML=`<h2>${T}</h2>`+(kind=='invnew'?`<label>Name<input id="f-name" maxlength="40" placeholder="e.g. Trading account"></label>`+amt('Amount put in (₹)')+acc('Paid from'):kind=='invval'?amt('Worth now (₹)'):kind=='invadd'?amt('Amount to add (₹)')+acc('Paid from'):amt('Amount to withdraw (₹)')+acc('Send to'))+(kind=='invval'?'':date)+`<p id="f-err" role="alert"></p><div class="row"><button class="ghost" data-a="close">Cancel</button><button class="pri" data-a="save" data-f="${kind}">Save</button></div>`;
+  $('dlg').showModal();
+}
+function submitInv(kind){
+  const id=+$('dlg').dataset.id, v=S.inv.find(i=>i.id===id), amt=parseFloat($('f-amt').value), err=m=>{$('f-err').textContent=m};
+  if(kind=='invval'){if(!(amt>=0)||!v)return err('Enter the current value.');v.val=amt}
+  else{
+    if(!(amt>0))return err('Enter an amount greater than zero.');
+    const date=$('f-date').value||today(), acc=$('f-acc').value;
+    if(kind=='invnew'){const name=$('f-name').value.trim();if(!name)return err('Enter a name.');S.inv.push({id:Date.now(),name,put:amt,out:0,val:amt,flows:[{id:Date.now()+1,date,acc,amt}]})}
+    else if(v){
+      if(kind=='invadd'){v.put+=amt;v.val+=amt;v.flows.push({id:Date.now(),date,acc,amt})}
+      else{v.out+=amt;v.val=Math.max(0,v.val-amt);v.flows.push({id:Date.now(),date,acc,amt:-amt})}
+    }
+  }
+  save();$('dlg').close();render();
+}
 function loans(kind){
   const L=S.loans.filter(l=>l.kind==kind);
-  return `<div class="card"><div class="hd"><h2>${kind=='lent'?'Money Lent':'Borrowed Money'}</h2><button class="pri sm" data-a="form" data-f="${kind}">+ Add</button></div>`+
+  return `<div class="card"><div class="hd"><h2>${kind=='lent'?'Lend Money':'Borrowed Money'}</h2><button class="pri sm" data-a="form" data-f="${kind}">+ Add</button></div>`+
   (L.length?L.map(l=>`<div class="row2"><div class="${l.done?'done':''}"><b>${esc(l.who)}</b><small>Due ${l.due}</small></div><b class="${l.done?'done':''}">${fmt(l.amt)}</b><button class="ghost sm" data-a="settle" data-id="${l.id}">${l.done?'Reopen':'Settle'}</button><button class="x" data-a="delloan" data-id="${l.id}" aria-label="Delete">×</button></div>`).join(''):'<p class="mu">Nothing here yet. Tap “Add” to record one.</p>')+'</div>';
 }
 
 /* 6. THE ADD FORM (one pop-up used for all four buttons) */
-function openForm(kind){
-  const loan=kind=='borrowed'||kind=='lent', title={expense:'Add Expense',income:'Add Income',borrowed:'Borrowed Money',lent:'Money Lent',transfer:'Move Money'}[kind];
+function openForm(kind,id){
+  if(kind.startsWith('inv'))return openInv(kind,id);
+  const loan=kind=='borrowed'||kind=='lent', title={expense:'Add Expense',income:'Add Income',borrowed:'Borrowed Money',lent:'Lend Money',transfer:'Move Money'}[kind];
   const opts=o=>Object.keys(o).map(k=>`<option>${k}</option>`).join('');
   $('dlg').innerHTML=`<h2>${title}</h2><label>Amount (₹)<input id="f-amt" type="number" min="0" step="0.01" inputmode="decimal"></label>`+
-  (kind=='transfer'?`<label>From<select id="f-from">${opts(ACCS)}</select></label><label>To<select id="f-to">${opts(ACCS)}</select></label><label>Note (optional)<input id="f-note" maxlength="60"></label><label>Date<input id="f-date" type="date" value="${sel}"></label>`:loan?`<label>${kind=='lent'?'Lent to':'Borrowed from'}<input id="f-who" maxlength="40"></label><label>Due date<input id="f-date" type="date" value="${sel}"></label>`
+  (kind=='transfer'?`<label>From<select id="f-from">${opts(ACCS)}</select></label><label>To<select id="f-to">${opts(ACCS)}</select></label><label>Note (optional)<input id="f-note" maxlength="60"></label><label>Date<input id="f-date" type="date" value="${sel}"></label>`:loan?`<label>${kind=='lent'?'Lend to':'Borrowed from'}<input id="f-who" maxlength="40"></label><label>Due date<input id="f-date" type="date" value="${sel}"></label>`
   :`<label>Category<select id="f-cat">${opts(S.cats[kind])}</select></label><button class="ghost sm" data-a="cats" data-t="${kind}">Edit ${kind} categories</button><label>Account<select id="f-acc">${opts(ACCS)}</select></label><label>Note (optional)<input id="f-note" maxlength="60"></label><label>Date<input id="f-date" type="date" value="${sel}"></label>`)+
   `<p id="f-err" role="alert"></p><div class="row"><button class="ghost" data-a="close">Cancel</button><button class="pri" data-a="save" data-f="${kind}">Save</button></div>`;
     if(kind=='transfer')$('f-to').selectedIndex=1;
   $('dlg').showModal();
 }
 function submit(kind){
+  if(kind.startsWith('inv'))return submitInv(kind);
   const amt=parseFloat($('f-amt').value), date=$('f-date').value||today(), err=m=>{$('f-err').textContent=m};
   if(!(amt>0))return err('Enter an amount greater than zero.');
   if(kind=='borrowed'||kind=='lent'){
@@ -299,7 +336,7 @@ function render(){
   $('month').value=ym;
   $('nav').innerHTML=NAV.map(n=>`<button class="${n[0]==view?'on ':''}${n[3]?'soon':''}" data-a="nav" data-v="${n[0]}">${n[1]}<span>${n[2]}</span></button>`).join('')+(isAdmin()?'<button onclick="location.href=\'admin.html\'">⚙️<span>Admin</span></button>':'');
   const soon=NAV.find(n=>n[0]==view);
-  $('view').innerHTML=view=='home'?home():view=='reports'?reports():(view=='borrowed'||view=='lent')?loans(view):`<div class="card"><h2>${soon[2]}</h2><p class="mu">This section is coming in a later step.</p></div>`;
+  $('view').innerHTML=view=='home'?home():view=='reports'?reports():view=='invest'?invest():(view=='borrowed'||view=='lent')?loans(view):`<div class="card"><h2>${soon[2]}</h2><p class="mu">This section is coming in a later step.</p></div>`;
 }
 
 /* 9. TAPS AND CLICKS */
@@ -311,11 +348,12 @@ document.addEventListener('click',e=>{
   if(a=='catadd')return $('clist').insertAdjacentHTML('beforeend',crow('📦','',''));
   if(a=='catdel')return b.closest('.crow').remove();
   if(a=='catsave')return saveCats();
-  if(a=='form')return openForm(b.dataset.f);
+  if(a=='form')return openForm(b.dataset.f,id);
   if(a=='close')return $('dlg').close();
   if(a=='save')return submit(b.dataset.f);
   if(a=='nav')view=b.dataset.v;
   else if(a=='rtab')rtab=b.dataset.t;
+  else if(a=='invdel'){if(!confirm('Delete this investment? The money you moved will be added back to your account balances.'))return;S.inv=S.inv.filter(i=>i.id!==id);save()}
   else if(a=='rday'){const d=new Date(sel+'T12:00:00');d.setDate(d.getDate()+Number(b.dataset.n));sel=iso(d);ym=sel.slice(0,7)}
   else if(a=='mprev'||a=='mnext'){const [y,m]=ym.split('-').map(Number);ym=iso(new Date(y,m-1+(a=='mnext'?1:-1),1)).slice(0,7)}
   else if(a=='del'){S.tx=S.tx.filter(t=>t.id!==id);save()}
